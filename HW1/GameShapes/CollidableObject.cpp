@@ -65,39 +65,5 @@ bool CollidableObject::CheckCollision(CollidableObject other){
         return true;
     }
     return false;
-
-    /*
-    sf::Vector2f otherPos = other.getPosition();
-    sf::Vector2f otherHalfSize = other.GetHalfSize();
-    sf::Vector2f thisPos = getPosition();
-    sf::Vector2f thisHalfSize = GetHalfSize();
-
-    float dX = otherPos.x - thisPos.x;
-    float dY = otherPos.y - thisPos.y;
-
-    float intersectX = abs(dX) - (otherHalfSize.x + thisHalfSize.x);
-    float intersectY = abs(dY) - (otherHalfSize.y + thisHalfSize.y);
-
-    if(intersectX < 0.0f && intersectY < 0.0f){
-        if(intersectX > intersectY){
-            if(dX > 0.0f){
-                move(intersectX, 0.0f);
-            }
-            else{
-                move(-intersectX, 0.0f);
-            }
-        }
-        else{
-            if(dY > 0.0f){
-                move(0.0f, intersectY);
-            }
-            else{
-                move(0.0f, -intersectY);
-            }
-        }
-        return true;
-    }
-    return false;
-    */
     
 }
