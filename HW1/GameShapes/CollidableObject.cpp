@@ -21,15 +21,14 @@ void CollidableObject::applyTexture(std::string filePath){
     see README to see what sources helped design the algorithm
 */
 bool CollidableObject::CheckCollision(CollidableObject other){
-
-    sf::Vector2f otherPos = other.getPosition();
-    sf::Vector2f otherSize = other.getSize();
-    sf::Vector2f thisPos = getPosition();
-    sf::Vector2f thisSize = getSize();
-
     //if there is a collision
-    if(thisPos.x < otherPos.x + otherSize.x && thisPos.x + thisSize.x > otherPos.x && thisPos.y < otherPos.y + otherSize.y && thisPos.y + thisSize.y > otherPos.y){
+    if(getGlobalBounds().intersects(other.getGlobalBounds())){
         
+        sf::Vector2f otherPos = other.getPosition();
+        sf::Vector2f otherSize = other.getSize();
+        sf::Vector2f thisPos = getPosition();
+        sf::Vector2f thisSize = getSize();
+
         //distance from top of player to bottom of other obj
         float colBot = otherPos.y + otherSize.y - thisPos.y;
         //distance from bottom of player to top of other obj
