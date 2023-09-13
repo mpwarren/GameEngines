@@ -11,8 +11,6 @@ class CollidableObject : public sf::RectangleShape{
         CollidableObject(sf::Vector2f size, sf::Vector2f position, std::string texturePath);
 
         bool CheckCollision(CollidableObject other);
-        
-        sf::Vector2f GetHalfSize();
 
         void applyTexture(std::string filePath);
     

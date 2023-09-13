@@ -50,9 +50,11 @@ int main()
 
 
         horzPlatform.movePosition();
+        player.CheckCollision(horzPlatform);
         window.draw(horzPlatform);
 
         vertPlatform.movePosition();
+        player.CheckCollision(vertPlatform);
         window.draw(vertPlatform);
 
         window.draw(player);

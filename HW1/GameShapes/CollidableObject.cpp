@@ -16,11 +16,6 @@ void CollidableObject::applyTexture(std::string filePath){
     }
 }
 
-sf::Vector2f CollidableObject::GetHalfSize(){
-    return getSize() / 2.0f;
-}
-
-
 /*
     AABB collision detection
     algorithm help from:
