@@ -1,9 +1,8 @@
 #include "Player.h"
 #include <iostream>
 
-Player::Player(float radius, sf::Vector2f startPosition) : sf::CircleShape(radius){
+Player::Player(sf::Vector2f size, sf::Vector2f startPosition, std::string texturePath) : CollidableObject(size, startPosition, texturePath){
     setPosition(startPosition);
-    collidedDown, collidedLeft, collidedRight, collidedUp = false;
 }
 
 void Player::movePlayer(sf::Keyboard::Key key, Platform platform){
@@ -23,15 +22,7 @@ void Player::movePlayer(sf::Keyboard::Key key, Platform platform){
         xDir = 1;
     }
 
-    if(!getGlobalBounds().intersects(platform.getGlobalBounds())){
-        move(xDir, yDir);
-    }
-    else{ //there is collision
-        if(key == sf::Keyboard::S && !platform.getGlobalBounds().contains(sf::Vector2f(getPosition().x, getPosition().y + 2 * getRadius()))){
-            move(xDir, yDir);
-        }
-        else if (key != sf::Keyboard::S){
-            move(xDir, yDir);
-        }
-    }
+    move(xDir, yDir);
+
+    CheckCollision(platform);
 }

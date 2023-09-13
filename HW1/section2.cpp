@@ -16,7 +16,7 @@ int main()
     MovingPlatform vertPlatform(sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), "", Direction::vertical, 0.5, 400);
     vertPlatform.setFillColor(sf::Color(150, 50, 250));
 
-    Player player(25, sf::Vector2f(200, 200));
+    Player player(sf::Vector2f(50,50), sf::Vector2f(200, 200), "");
     player.setFillColor(sf::Color(150, 50, 250));
 
 

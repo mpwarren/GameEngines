@@ -2,15 +2,10 @@
 #define PLATFORM_H
 
 #include <SFML/Graphics.hpp>
-#include <cstddef>
+#include "CollidableObject.h"
 
-class Platform : public sf::RectangleShape{
+class Platform : public CollidableObject{
     public:
-        Platform(sf::Vector2f size, sf::Vector2f position, std::string texturePath = NULL);
-        void applyTexture(std::string filePath);
-    
-    private:
-        sf::Texture texture;
-
+        Platform(sf::Vector2f size, sf::Vector2f position, std::string texturePath);
 };
 #endif
