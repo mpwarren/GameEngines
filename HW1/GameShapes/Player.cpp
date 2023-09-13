@@ -1,9 +1,8 @@
 #include "Player.h"
 #include <iostream>
 
-Player::Player(float radius, sf::Vector2f startPosition) : sf::CircleShape(radius){
+Player::Player(sf::Vector2f size, sf::Vector2f startPosition) : sf::RectangleShape(size){
     setPosition(startPosition);
-    collidedDown, collidedLeft, collidedRight, collidedUp = false;
 }
 
 void Player::movePlayer(sf::Keyboard::Key key, Platform platform){

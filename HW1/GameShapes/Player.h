@@ -3,17 +3,12 @@
 
 #include <SFML/Graphics.hpp>
 #include "Platform.h"
+#include "Collider.h"
 
-class Player : public sf::CircleShape{
+class Player : public sf::RectangleShape{
     public:
-        Player(float radius, sf::Vector2f startPosition);
+        Player(sf::Vector2f size, sf::Vector2f startPosition);
         void movePlayer(sf::Keyboard::Key, Platform platform);
-
-    private:
-        bool collidedDown;
-        bool collidedUp;
-        bool collidedLeft;
-        bool collidedRight;
 
 };
 #endif
