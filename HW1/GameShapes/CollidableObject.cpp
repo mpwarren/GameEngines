@@ -29,32 +29,33 @@ bool CollidableObject::CheckCollision(CollidableObject other){
     sf::Vector2f thisPos = getPosition();
     sf::Vector2f thisSize = getSize();
 
+    //if there is a collision
     if(thisPos.x < otherPos.x + otherSize.x && thisPos.x + thisSize.x > otherPos.x && thisPos.y < otherPos.y + otherSize.y && thisPos.y + thisSize.y > otherPos.y){
         
-        //find the closest distance from a side of the player to a side of the other object
-        float botPlayer = getPosition().y + getSize().y;
-        float botPlat = other.getPosition().y + other.getSize().y;
-        float rightPlayer = getPosition().x + getSize().x;
-        float rightPlat = other.getPosition().x + other.getSize().x;
+        //distance from top of player to bottom of other obj
+        float colBot = other.getPosition().y + other.getSize().y - getPosition().y;
+        //distance from bottom of player to top of other obj
+        float colTop = getPosition().y + getSize().y - other.getPosition().y;
+        //distance from right of player to left of other obj
+        float colLeft = getPosition().x + getSize().x - other.getPosition().x;
+        //distance from left of player to right of other obj
+        float colRight = other.getPosition().x + other.getSize().x - getPosition().x;
 
-        float colBot = botPlat - getPosition().y;
-        float colTop = botPlayer - other.getPosition().y;
-        float colLeft = rightPlayer - other.getPosition().x;
-        float colRight = rightPlat - getPosition().x;
-
+        //find smallest distance of those 4 to find where collision is
         float min = std::min({colBot, colTop, colLeft, colRight});
-
+        
+        //move player to right outside of the colliding side
         if(min == colTop){
-            setPosition(getPosition().x, other.getPosition().y - getSize().y);
+            setPosition(thisPos.x, otherPos.y - thisSize.y);
         }
         else if(min == colBot){
-            setPosition(getPosition().x, botPlat);
+            setPosition(thisPos.x, otherPos.y + otherSize.y);
         }
         else if(min == colRight){
-            setPosition(rightPlat, getPosition().y);
+            setPosition(otherPos.x + otherSize.x, thisPos.y);
         }
         else if(min == colLeft){
-            setPosition(other.getPosition().x - getSize().x, getPosition().y);
+            setPosition(otherPos.x - thisSize.x, thisPos.y);
         }
         
 
