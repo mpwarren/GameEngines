@@ -31,6 +31,7 @@ bool CollidableObject::CheckCollision(CollidableObject other){
 
     if(thisPos.x < otherPos.x + otherSize.x && thisPos.x + thisSize.x > otherPos.x && thisPos.y < otherPos.y + otherSize.y && thisPos.y + thisSize.y > otherPos.y){
         
+        //find the closest distance from a side of the player to a side of the other object
         float botPlayer = getPosition().y + getSize().y;
         float botPlat = other.getPosition().y + other.getSize().y;
         float rightPlayer = getPosition().x + getSize().x;
