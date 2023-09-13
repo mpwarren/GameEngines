@@ -18,9 +18,7 @@ void CollidableObject::applyTexture(std::string filePath){
 
 /*
     AABB collision detection
-    algorithm help from:
-    - https://tutorialedge.net/gamedev/aabb-collision-detection-tutorial/
-    - https://stackoverflow.com/questions/5062833/detecting-the-direction-of-a-collision
+    see README to see what sources helped design the algorithm
 */
 bool CollidableObject::CheckCollision(CollidableObject other){
 
@@ -33,13 +31,13 @@ bool CollidableObject::CheckCollision(CollidableObject other){
     if(thisPos.x < otherPos.x + otherSize.x && thisPos.x + thisSize.x > otherPos.x && thisPos.y < otherPos.y + otherSize.y && thisPos.y + thisSize.y > otherPos.y){
         
         //distance from top of player to bottom of other obj
-        float colBot = other.getPosition().y + other.getSize().y - getPosition().y;
+        float colBot = otherPos.y + otherSize.y - thisPos.y;
         //distance from bottom of player to top of other obj
-        float colTop = getPosition().y + getSize().y - other.getPosition().y;
+        float colTop = thisPos.y + thisSize.y - otherPos.y;
         //distance from right of player to left of other obj
-        float colLeft = getPosition().x + getSize().x - other.getPosition().x;
+        float colLeft = thisPos.x + thisSize.x - otherPos.x;
         //distance from left of player to right of other obj
-        float colRight = other.getPosition().x + other.getSize().x - getPosition().x;
+        float colRight = otherPos.x + otherSize.x - thisPos.x;
 
         //find smallest distance of those 4 to find where collision is
         float min = std::min({colBot, colTop, colLeft, colRight});
