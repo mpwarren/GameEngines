@@ -8,6 +8,7 @@ int main()
 {
     sf::RenderWindow window(sf::VideoMode(800, 600), "My Window", sf::Style::Default);
 
+    //Create platforms and player
     Platform platform(sf::Vector2f(780.f, 15.f), sf::Vector2f(10,575), "Textures/brightgrass.png");
 
     MovingPlatform horzPlatform(sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), "", Direction::horizontal, 0.5, 200);
