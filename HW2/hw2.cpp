@@ -77,9 +77,12 @@ void checkCollisions(std::mutex *renderMutex, sf::RenderWindow *window, Player *
             if(player->getGlobalBounds().intersects(obj->getGlobalBounds())){
 
                 //lock mutex until method ends, stopping all other movement until collision is resolved
-                std::lock_guard<std::mutex> lock(*renderMutex);
+                {
+                    std::lock_guard<std::mutex> lock(*renderMutex);
 
-                player->resolveColision(obj);
+                    player->resolveColision(obj);
+                }
+
 
             }
         }
