@@ -1,11 +1,11 @@
 CC=g++
 SHAPESDIR = GameShapes/
 
-hw1exe: hw1.o CollidableObject.o MovingPlatform.o Platform.o Player.o
-	$(CC) hw1.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o hw1exe -lsfml-graphics -lsfml-window -lsfml-system
+hw2exe: hw2.o CollidableObject.o MovingPlatform.o Platform.o Player.o
+	$(CC) hw2.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o hw2exe -lsfml-graphics -lsfml-window -lsfml-system -pthread
 
-hw1.o: hw1.cpp $(SHAPESDIR)CollidableObject.h $(SHAPESDIR)Platform.h $(SHAPESDIR)MovingPlatform.h
-	$(CC) -c hw1.cpp -o hw1.o
+hw2.o: hw2.cpp $(SHAPESDIR)CollidableObject.h $(SHAPESDIR)Platform.h $(SHAPESDIR)MovingPlatform.h
+	$(CC) -c hw2.cpp -o hw2.o
 
 CollidableObject.o: $(SHAPESDIR)CollidableObject.h $(SHAPESDIR)CollidableObject.cpp
 	$(CC) -c $(SHAPESDIR)CollidableObject.cpp

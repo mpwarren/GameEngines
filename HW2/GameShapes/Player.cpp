@@ -5,7 +5,7 @@ Player::Player(sf::Vector2f size, sf::Vector2f startPosition, std::string textur
     setPosition(startPosition);
 }
 
-void Player::movePlayer(sf::Keyboard::Key key, Platform platform){
+void Player::movePlayer(sf::Keyboard::Key key){
     int xDir = 0;
     int yDir = 0;
 
@@ -23,6 +23,4 @@ void Player::movePlayer(sf::Keyboard::Key key, Platform platform){
     }
 
     move(xDir, yDir);
-
-    CheckCollision(platform);
 }
