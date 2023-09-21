@@ -55,6 +55,7 @@ void moveObjects(std::mutex *renderMutex, sf::RenderWindow *window, Player *play
         }
 
         {
+            //make sure nothing is moving before drawing
             std::unique_lock<std::mutex> lock(*renderMutex);
             window->draw(*player);
             for(CollidableObject* obj : collidableObjects){
@@ -75,39 +76,11 @@ void checkCollisions(std::mutex *renderMutex, sf::RenderWindow *window, Player *
 
             if(player->getGlobalBounds().intersects(obj->getGlobalBounds())){
 
-                //lock mutex until method ends, stopping all other movement
+                //lock mutex until method ends, stopping all other movement until collision is resolved
                 std::lock_guard<std::mutex> lock(*renderMutex);
 
-                sf::Vector2f otherPos = obj->getPosition();
-                sf::Vector2f otherSize = obj->getSize();
-                sf::Vector2f thisPos = player->getPosition();
-                sf::Vector2f thisSize = player->getSize();
+                player->resolveColision(obj);
 
-                //distance from top of player to bottom of other obj
-                float colBot = otherPos.y + otherSize.y - thisPos.y;
-                //distance from bottom of player to top of other obj
-                float colTop = thisPos.y + thisSize.y - otherPos.y;
-                //distance from right of player to left of other obj
-                float colLeft = thisPos.x + thisSize.x - otherPos.x;
-                //distance from left of player to right of other obj
-                float colRight = otherPos.x + otherSize.x - thisPos.x;
-
-                //find smallest distance of those 4 to find where collision is
-                float min = std::min({colBot, colTop, colLeft, colRight});
-                
-                //move player to right outside of the colliding side
-                if(min == colTop){
-                    player->setPosition(thisPos.x, otherPos.y - thisSize.y);
-                }
-                else if(min == colBot){
-                    player->setPosition(thisPos.x, otherPos.y + otherSize.y);
-                }
-                else if(min == colRight){
-                    player->setPosition(otherPos.x + otherSize.x, thisPos.y);
-                }
-                else if(min == colLeft){
-                    player->setPosition(otherPos.x - thisSize.x, thisPos.y);
-                }
             }
         }
     }
@@ -140,7 +113,7 @@ int main()
     movingObjects.push_back(&vertPlatform);
     collidableObjects.push_back(&vertPlatform);
 
-    Player player(sf::Vector2f(50,200), sf::Vector2f(50, 50), "");
+    Player player(sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
     player.setFillColor(sf::Color(150, 50, 250));
     
     std::thread movementThread(moveObjects, &renderMutex, &window, &player, collidableObjects, movingObjects);
