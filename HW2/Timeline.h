@@ -7,7 +7,7 @@ class Timeline{
     public:
         Timeline(Timeline* anchor, int64_t tic);
 
-        Timeline(int type);
+        Timeline();
 
         int64_t getTime();
 
@@ -15,16 +15,21 @@ class Timeline{
 
         void unpause();
 
-        void changeTic(int tic);
+        void changeTic(int64_t newTic);
 
         bool isPaused();
 
     private:
-        std::Mutex timemutex;
+        std::mutex timemutex;
         int64_t startTime;
         int64_t lastPausedTime;
         int64_t tic;
         bool paused;
         Timeline *anchor;
+        //0 for base, 1 for other
+        int type;
+
+        int64_t getRealTime();
+        
 };
 #endif

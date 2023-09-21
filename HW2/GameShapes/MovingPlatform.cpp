@@ -11,19 +11,19 @@ MovingPlatform::MovingPlatform(sf::Vector2f size, sf::Vector2f position, std::st
 }
 
 
-void MovingPlatform::movePosition(){
+void MovingPlatform::movePosition(int64_t frameDelta){
     sf::Vector2f currentPosition = getPosition();
     if(platformDirection == Direction::horizontal){
         if(currentPosition.x > endPoint.x || currentPosition.x < startPoint.x){
             currentlyMoving *= -1;
         }
-        move(currentlyMoving * velocity, 0);
+        move(currentlyMoving * velocity * frameDelta, 0);
     }
     else if(platformDirection == Direction::vertical){
         if(currentPosition.y > endPoint.y || currentPosition.y < startPoint.y){
             currentlyMoving *= -1;
         }
-        move(0, currentlyMoving * velocity);
+        move(0, currentlyMoving * velocity * frameDelta);
     }
 }
 

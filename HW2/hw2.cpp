@@ -2,13 +2,16 @@
 #include "GameShapes/Platform.h"
 #include "GameShapes/MovingPlatform.h"
 #include "GameShapes/Player.h"
+#include "Timeline.h"
 #include <iostream>
 #include <mutex>
 #include <thread>
 
-void moveObjects(std::mutex *renderMutex, sf::RenderWindow *window, Player *player, std::vector<CollidableObject*> collidableObjects, std::vector<MovingPlatform*> movingObjects){
+void moveObjects(std::mutex *renderMutex, sf::RenderWindow *window, Timeline *gameTimeline, Player *player, std::vector<CollidableObject*> collidableObjects, std::vector<MovingPlatform*> movingObjects){
     window->setActive(true);
     
+    int64_t lastTime = gameTimeline->getTime();
+
     while(window->isOpen()){
 
         // check all the window's events that were triggered since the last iteration of the loop
@@ -22,41 +25,46 @@ void moveObjects(std::mutex *renderMutex, sf::RenderWindow *window, Player *play
 
         window->clear(sf::Color::Black);
 
+        int64_t currentTime = gameTimeline->getTime();
+        int64_t frameDelta = currentTime - lastTime;
+        std::cout << frameDelta << "\n" << fflush;
+        lastTime = currentTime;
+
         for(MovingPlatform* obj : movingObjects){
             {
-                std::unique_lock<std::mutex> lock(*renderMutex);
-                obj->movePosition();
+                std::lock_guard<std::mutex> lock(*renderMutex);
+                obj->movePosition(frameDelta);
             }
         }
 
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
             {
-                std::unique_lock<std::mutex> lock(*renderMutex);
-                player->movePlayer(sf::Keyboard::W);
+                std::lock_guard<std::mutex> lock(*renderMutex);
+                player->movePlayer(sf::Keyboard::W, frameDelta);
             }
         }
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
             {
-                std::unique_lock<std::mutex> lock(*renderMutex);
-                player->movePlayer(sf::Keyboard::A);
+                std::lock_guard<std::mutex> lock(*renderMutex);
+                player->movePlayer(sf::Keyboard::A, frameDelta);
             }
         }
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)){
             {
-                std::unique_lock<std::mutex> lock(*renderMutex);
-                player->movePlayer(sf::Keyboard::S);
+                std::lock_guard<std::mutex> lock(*renderMutex);
+                player->movePlayer(sf::Keyboard::S, frameDelta);
             }
         }
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
             {
-                std::unique_lock<std::mutex> lock(*renderMutex);
-                player->movePlayer(sf::Keyboard::D);
+                std::lock_guard<std::mutex> lock(*renderMutex);
+                player->movePlayer(sf::Keyboard::D, frameDelta);
             }
         }
 
         {
             //make sure nothing is moving before drawing
-            std::unique_lock<std::mutex> lock(*renderMutex);
+            std::lock_guard<std::mutex> lock(*renderMutex);
             window->draw(*player);
             for(CollidableObject* obj : collidableObjects){
                 window->draw(*obj);
@@ -101,17 +109,19 @@ int main()
     std::vector<MovingPlatform*> movingObjects;
     std::vector<CollidableObject*> collidableObjects;
 
+    Timeline anchorTimeline;
+    Timeline gameTime(&anchorTimeline, 1);
 
     //Create platforms and player
     Platform platform(sf::Vector2f(780.f, 15.f), sf::Vector2f(10,575), "Textures/brightgrass.png");
     collidableObjects.push_back(&platform);
 
-    MovingPlatform horzPlatform(sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), "", Direction::horizontal, 0.5, 200);
+    MovingPlatform horzPlatform(sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), "", Direction::horizontal, 0.1, 200);
     horzPlatform.setFillColor(sf::Color(150, 50, 250));
     movingObjects.push_back(&horzPlatform);
     collidableObjects.push_back(&horzPlatform);
 
-    MovingPlatform vertPlatform(sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), "", Direction::vertical, 0.5, 400);
+    MovingPlatform vertPlatform(sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), "", Direction::vertical, 0.1, 400);
     vertPlatform.setFillColor(sf::Color(150, 50, 250));
     movingObjects.push_back(&vertPlatform);
     collidableObjects.push_back(&vertPlatform);
@@ -119,7 +129,7 @@ int main()
     Player player(sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
     player.setFillColor(sf::Color(150, 50, 250));
     
-    std::thread movementThread(moveObjects, &renderMutex, &window, &player, collidableObjects, movingObjects);
+    std::thread movementThread(moveObjects, &renderMutex, &window, &gameTime, &player, collidableObjects, movingObjects);
     std::thread collisionThread(checkCollisions, &renderMutex, &window, &player, collidableObjects);
 
     movementThread.join();
