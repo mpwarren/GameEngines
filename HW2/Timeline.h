@@ -2,20 +2,21 @@
 #define TIMELINE_H
 
 #include <mutex>
+#include <vector>
 
 class Timeline{
     public:
-        Timeline(Timeline* anchor, int64_t tic);
+        Timeline(Timeline* anchor);
 
         Timeline();
 
         int64_t getTime();
 
-        void pause();
+        void pause(int64_t pauseTime);
 
-        void unpause();
+        int64_t unpause();
 
-        void changeTic(int64_t newTic);
+        void changeTic(int64_t ticRate);
 
         bool isPaused();
 
@@ -30,6 +31,6 @@ class Timeline{
         int type;
 
         int64_t getRealTime();
-        
+
 };
 #endif

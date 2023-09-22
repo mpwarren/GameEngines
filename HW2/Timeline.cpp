@@ -1,12 +1,13 @@
 #include "Timeline.h"
 #include <chrono>
 #include <cstdint>
+#include <iostream>
 
 
 
-Timeline::Timeline(Timeline* anchorParam, int64_t ticParam){
+Timeline::Timeline(Timeline* anchorParam){
     anchor = anchorParam;
-    tic = ticParam;
+    tic = 2;
     startTime = anchor->getTime(); 
     type = 1;
     paused = false;
@@ -21,27 +22,36 @@ Timeline::Timeline(){
 
 int64_t Timeline::getTime(){
     std::lock_guard<std::mutex> lock(timemutex);
+    if(paused){
+        return lastPausedTime;
+    }
     if (type == 0){
         return getRealTime() - startTime;
     }
     return (anchor->getTime() - startTime) / tic;
+
 }
 
-void Timeline::pause(){
+void Timeline::pause(int64_t pauseTime){
     std::lock_guard<std::mutex> lock(timemutex);
-    lastPausedTime = getTime();
+    std::cout << "Pausing!\n";
+    lastPausedTime = pauseTime;
     paused = true;
 }
 
-void Timeline::unpause(){
+int64_t Timeline::unpause(){
     std::lock_guard<std::mutex> lock(timemutex);
-    int64_t elapsedTime = getTime() - lastPausedTime;
+    std::cout << "Unpausing!\n";
     paused = false;
+    return lastPausedTime;
 }
 
-void Timeline::changeTic(int64_t newTic){
-    std::lock_guard<std::mutex> lock(timemutex);
-    tic = newTic;
+void Timeline::changeTic(int64_t ticRate){
+    if(ticRate != tic){
+        std::lock_guard<std::mutex> lock(timemutex);
+        tic = ticRate;
+    }
+
 }
 
 bool Timeline::isPaused(){

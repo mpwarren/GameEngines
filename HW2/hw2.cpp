@@ -11,6 +11,8 @@ void moveObjects(std::mutex *renderMutex, sf::RenderWindow *window, Timeline *ga
     window->setActive(true);
     
     int64_t lastTime = gameTimeline->getTime();
+    
+    bool changedTic = false;
 
     while(window->isOpen()){
 
@@ -21,14 +23,41 @@ void moveObjects(std::mutex *renderMutex, sf::RenderWindow *window, Timeline *ga
             // "close requested" event: we close the window
             if (event.type == sf::Event::Closed)
                 window->close();
+
+            if(event.type == sf::Event::KeyReleased){
+                if(event.key.code == sf::Keyboard::P){
+                    if(gameTimeline->isPaused()){
+                        int64_t elapsedTime = gameTimeline->unpause();
+                        lastTime = gameTimeline->getTime();
+                    }
+                    else{
+                        gameTimeline->pause(lastTime);
+                    }
+                }
+            }
         }
 
         window->clear(sf::Color::Black);
 
         int64_t currentTime = gameTimeline->getTime();
         int64_t frameDelta = currentTime - lastTime;
-        std::cout << frameDelta << "\n" << fflush;
         lastTime = currentTime;
+
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::F)){
+            gameTimeline->changeTic(4);
+            lastTime = gameTimeline->getTime();
+        }
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::G)){
+            gameTimeline->changeTic(2);
+            lastTime = gameTimeline->getTime();
+        }
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::H)){
+            gameTimeline->changeTic(1);
+            lastTime = gameTimeline->getTime();
+        }
+
+
+
 
         for(MovingPlatform* obj : movingObjects){
             {
@@ -110,7 +139,7 @@ int main()
     std::vector<CollidableObject*> collidableObjects;
 
     Timeline anchorTimeline;
-    Timeline gameTime(&anchorTimeline, 1);
+    Timeline gameTime(&anchorTimeline);
 
     //Create platforms and player
     Platform platform(sf::Vector2f(780.f, 15.f), sf::Vector2f(10,575), "Textures/brightgrass.png");
@@ -134,6 +163,10 @@ int main()
 
     movementThread.join();
     collisionThread.join();
+
+    while(window.isOpen()){
+        
+    }
 
     return 0;
 }
