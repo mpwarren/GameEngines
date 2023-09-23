@@ -34,14 +34,12 @@ int64_t Timeline::getTime(){
 
 void Timeline::pause(int64_t pauseTime){
     std::lock_guard<std::mutex> lock(timemutex);
-    std::cout << "Pausing!\n";
     lastPausedTime = pauseTime;
     paused = true;
 }
 
 int64_t Timeline::unpause(){
     std::lock_guard<std::mutex> lock(timemutex);
-    std::cout << "Unpausing!\n";
     paused = false;
     return lastPausedTime;
 }

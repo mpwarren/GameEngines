@@ -24,7 +24,7 @@ void moveObjects(std::mutex *renderMutex, sf::RenderWindow *window, Timeline *ga
             if (event.type == sf::Event::Closed)
                 window->close();
 
-            if(event.type == sf::Event::KeyReleased){
+            if(event.type == sf::Event::KeyPressed){
                 if(event.key.code == sf::Keyboard::P){
                     if(gameTimeline->isPaused()){
                         int64_t elapsedTime = gameTimeline->unpause();
