@@ -1,0 +1,14 @@
+Matthew Warren's CSC 481 HW1 Assignment
+
+To run, make sure you are in the root folder (HW1) and type make. All sections are implemented in 1 file. An executible called hw1exe will be made. Run the game with: ./hw1exe
+
+Movement is done using the WASD keys. All platforms should be able to be colided with. 
+
+
+Acknowledgements:
+
+Textures used were from:
+- OpenGameArt.org
+
+aabb collision detection algorithm help was recieved from:
+- https://stackoverflow.com/questions/5062833/detecting-the-direction-of-a-collision (adapted to help figure out where the collision was)

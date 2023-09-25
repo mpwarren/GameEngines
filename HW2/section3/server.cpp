@@ -74,9 +74,6 @@ int main () {
     zmq::socket_t repSocket (context, zmq::socket_type::rep);
     repSocket.bind ("tcp://*:5555");
 
-    zmq::socket_t internalPub (context, zmq::socket_type::pub);
-    internalPub.bind ("tcp://*:5557");
-
 
     int n = 0;
     while(true){
