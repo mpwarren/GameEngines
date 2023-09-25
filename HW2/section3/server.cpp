@@ -33,11 +33,10 @@ void publishData(){
             }
         }
 
-        zmq::message_t message1(30);
-        std::string str1 = "";
-        char *cstr = new char[str1.length() + 1];
-        strcpy(cstr, str1.c_str());
-        snprintf ((char *) message1.data(), 30 , cstr);
+        // std::string test = "";
+        // zmq::message_t testMessage(test.size());
+        // memcpy(testMessage.data(), test.c_str(), test.size());
+        // pubSocket.send(testMessage, zmq::send_flags::none);
 
 
         sleep(1);
