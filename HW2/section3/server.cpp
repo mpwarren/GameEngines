@@ -2,6 +2,7 @@
 #include <string>
 #include <iostream>
 #include <map>
+#include <mutex>
 #include <thread>
 #ifndef _WIN32
 #include <unistd.h>
@@ -11,8 +12,32 @@
 #define sleep(n)	Sleep(n)
 #endif
 
+std::mutex dataManager;
+
 std::map<int, int> iterationTracker;
 int n = 1;
+
+
+int getN(){
+    std::lock_guard<std::mutex> lock(dataManager);
+    return n;
+}
+
+void addToMap(){
+    std::lock_guard<std::mutex> lock(dataManager);
+    iterationTracker[n] = 1;
+    n++;
+}
+
+std::map<int, int> getMap(){
+    std::lock_guard<std::mutex> lock(dataManager);
+    return iterationTracker;
+}
+
+void updateIncrement(int clientNum){
+    std::lock_guard<std::mutex> lock(dataManager);
+    iterationTracker[clientNum]++;
+}
 
 void publishData(){
 
@@ -21,22 +46,19 @@ void publishData(){
     pubSocket.bind("tcp://*:5556");
 
     while(true){
-        for(auto& kv : iterationTracker){
+        int currentN = getN();
+        for(auto& kv : getMap()){
             zmq::message_t message(30);
             snprintf ((char *) message.data(), 30 ,"Client: %d Iteration: %d", kv.first, kv.second);
-            kv.second++;
-            if(kv.first == n - 1){
+            updateIncrement(kv.first);
+            if(kv.first == currentN - 1){
                 pubSocket.send(message, zmq::send_flags::none);
+                break;
             }
             else{
                 pubSocket.send(message, ZMQ_SNDMORE);
             }
         }
-
-        // std::string test = "";
-        // zmq::message_t testMessage(test.size());
-        // memcpy(testMessage.data(), test.c_str(), test.size());
-        // pubSocket.send(testMessage, zmq::send_flags::none);
 
 
         sleep(1);
@@ -52,14 +74,17 @@ int main () {
     zmq::socket_t repSocket (context, zmq::socket_type::rep);
     repSocket.bind ("tcp://*:5555");
 
+    zmq::socket_t internalPub (context, zmq::socket_type::pub);
+    internalPub.bind ("tcp://*:5557");
 
+
+    int n = 0;
     while(true){
         zmq::message_t request;
         repSocket.recv (request, zmq::recv_flags::none);
         std::cout << "Received New Client" << std::endl;
 
-        iterationTracker[n] = 1;
-        n++;
+        addToMap();
 
         //  Send reply back to client
         zmq::message_t reply (0);
