@@ -29,7 +29,7 @@ int main ()
 
     while(true) {
 
-        //OTHER SOCKET
+        //Read from other socket
         int moreToRead = 1;
         while(moreToRead != 0){
             zmq::message_t subMessage;
