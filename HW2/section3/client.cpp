@@ -14,7 +14,6 @@ int main ()
     zmq::socket_t reqSocket (context, zmq::socket_type::req);
     zmq::socket_t subSocket (context, zmq::socket_type::sub);
 
-    std::cout << "Connecting to hello world server..." << std::endl;
     reqSocket.connect ("tcp://localhost:5555");
     subSocket.connect ("tcp://localhost:5556");
 
@@ -27,17 +26,20 @@ int main ()
     //  Get the reply.
     zmq::message_t reply;
     reqSocket.recv (reply, zmq::recv_flags::none);
-    std::cout << "Received World " << request_nbr << std::endl;
 
-    //  Do 10 requests, waiting each time for a response
-    for (int request_nbr = 0; request_nbr != 10; request_nbr++) {
-
-
+    while(true) {
 
         //OTHER SOCKET
-        zmq::message_t subMessage;
-        subSocket.recv(subMessage, zmq::recv_flags::none);
-        std::cout << "subMessage: " << subMessage.to_string() << std::endl;
+        int moreToRead = 1;
+        while(moreToRead != 0){
+            zmq::message_t subMessage;
+            subSocket.recv(subMessage, zmq::recv_flags::none);
+            std::cout << subMessage.to_string() << std::endl;
+
+            size_t moreSize = sizeof(moreToRead);
+            subSocket.getsockopt(ZMQ_RCVMORE, &moreToRead, &moreSize);
+        }
+
 
     }
     return 0;

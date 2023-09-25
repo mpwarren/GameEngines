@@ -21,12 +21,25 @@ void publishData(){
     pubSocket.bind("tcp://*:5556");
 
     while(true){
-        zmq::message_t message(30);
-        snprintf ((char *) message.data(), 30 ,
-            "Client: %d Iteration: %d", iterationTracker[0].first, iterationTracker[0].second);
-        pubSocket.send(message, zmq::send_flags::none);
+        for(auto& kv : iterationTracker){
+            zmq::message_t message(30);
+            snprintf ((char *) message.data(), 30 ,"Client: %d Iteration: %d", kv.first, kv.second);
+            kv.second++;
+            if(kv.first == n - 1){
+                pubSocket.send(message, zmq::send_flags::none);
+            }
+            else{
+                pubSocket.send(message, ZMQ_SNDMORE);
+            }
+        }
 
-        iterationTracker[0].second++;
+        zmq::message_t message1(30);
+        std::string str1 = "";
+        char *cstr = new char[str1.length() + 1];
+        strcpy(cstr, str1.c_str());
+        snprintf ((char *) message1.data(), 30 , cstr);
+
+
         sleep(1);
     }
 
@@ -47,6 +60,7 @@ int main () {
         std::cout << "Received New Client" << std::endl;
 
         iterationTracker[n] = 1;
+        n++;
 
         //  Send reply back to client
         zmq::message_t reply (0);
