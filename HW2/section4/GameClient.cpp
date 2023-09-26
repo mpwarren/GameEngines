@@ -18,7 +18,7 @@ void platformMovement(std::mutex * renderMutex, std::map<int, MovingPlatform*> p
     subSocket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
     while(true){
-        zmq::message_t positionUpdate(128);
+        zmq::message_t positionUpdate(64);
         subSocket.recv(positionUpdate, zmq::recv_flags::none);
         std::string updateString = positionUpdate.to_string();
         std::istringstream ss(updateString);
@@ -33,11 +33,12 @@ void platformMovement(std::mutex * renderMutex, std::map<int, MovingPlatform*> p
             platformMap[currentId]->setPosition(sf::Vector2f(xCord, yCord));
         }
     }
+}
 
-
-
-
-
+void moveOtherPlayers(std::vector<Player*> players, int * currentPlayers, std::mutex * otherPlayerMutex){
+    while(true){
+        
+    }
 }
 
 int main ()
@@ -74,6 +75,9 @@ int main ()
     subSocket.connect ("tcp://localhost:5555");
     subSocket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
+    zmq::socket_t sendPlayerDataSocket(context, zmq::socket_type::req);
+    sendPlayerDataSocket.connect("tcp://localhost:5558");
+
     //Let server know a new player connected
     zmq::message_t newPlayerMessage (2);
     memcpy (newPlayerMessage.data (), "np", 2);
@@ -85,10 +89,25 @@ int main ()
     int myId = std::stoi(connectionResponse.to_string());
     std::cout << "Connected with id: "<< myId << std::endl;
 
+    std::vector<Player*> currentPlayers;
     Player player(myId, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
+    currentPlayres.push_back(&player);
+    player.setFillColor(sf::Color(150, 50, 250));
+
+    int playersInGame = 1;
+
+    Player player(myId + 1, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
+    currentPlayres.push_back(&player2);
+    player.setFillColor(sf::Color(150, 50, 250));
+
+    Player player(myId + 2, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
+    currentPlayres.push_back(&player3);
     player.setFillColor(sf::Color(150, 50, 250));
 
     std::thread platformThread(platformMovement, &renderMutex, movingPlatformsMap);
+    
+    std::mutex otherPlayerMutex;
+    std::thread otherPlayerThread(moveOtherPlayers, currentPlayers, &playersInGame, &otherPlayerMutex);
 
     //Thread to detect and send player movement
     while(window.isOpen()){
@@ -116,38 +135,62 @@ int main ()
         // for(int i = 0; i < words.size(); i++){
         //     std::cout << i <<": " << words[i] << std::endl;
         // }
-
+        bool moved = false;
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
             {
                 std::lock_guard<std::mutex> lock(renderMutex);
                 player.movePlayer(sf::Keyboard::W);
+                moved = true;
             }
         }
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
             {
                 std::lock_guard<std::mutex> lock(renderMutex);
                 player.movePlayer(sf::Keyboard::A);
+                moved = true;
             }
         }
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)){
             {
                 std::lock_guard<std::mutex> lock(renderMutex);
                 player.movePlayer(sf::Keyboard::S);
+                moved = true;
             }
         }
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
             {
                 std::lock_guard<std::mutex> lock(renderMutex);
                 player.movePlayer(sf::Keyboard::D);
+                moved = true;
             }
+        }
+
+        if(moved){
+            //update server on player's position
+            std::string playerPosString = "" + std::to_string(player.id) + " " + std::to_string(player.getPosition().x) + " " + std::to_string(player.getPosition().y);
+            zmq::message_t posMessage(sizeof(playerPosString));
+            memcpy(posMessage.data(), playerPosString.c_str(), sizeof(playerPosString));
+            sendPlayerDataSocket.send(posMessage, zmq::send_flags::none);
+            zmq::message_t rep(0);
+            sendPlayerDataSocket.recv(rep, zmq::recv_flags::none);
         }
 
         //check collisions
 
-        //update server on player's position
 
 
+        //DRAWING
         window.draw(player);
+        {
+            std::lock_guard<std::mutex> lock(otherPlayerMutex);
+            if(playersInGame > 1){
+                window.draw(player2);
+            }
+            else if(playersInGame > 2 ){
+                window.draw(player3);
+            }
+
+        }
         window.draw(platform);
         //draw platforms
 

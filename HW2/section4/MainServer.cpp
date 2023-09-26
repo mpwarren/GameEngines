@@ -26,9 +26,25 @@ void movePlatforms(std::vector<MovingPlatform*> movingObjects){
             
         }
     }
-    //move platforms
+}
 
-    //send updates to publish socket
+void publishPlayerLocations(){
+    zmq::context_t context (1);
+    zmq::socket_t playerHasMovedSocket (context, zmq::socket_type::rep);
+    playerHasMovedSocket.bind ("tcp://*:5558");
+
+    zmq::socket_t publishPlayerDataSocket (context, zmq::socket_type::pub);
+    publishPlayerDataSocket.bind ("tcp://*:5559");
+    while(true){
+
+
+        zmq::message_t playerPositionMessage(64);
+        playerHasMovedSocket.recv(playerPositionMessage, zmq::recv_flags::none);
+        zmq::message_t rep(0);
+        playerHasMovedSocket.send(rep, 0);
+
+        publishPlayerDataSocket.send(playerPositionMessage, zmq::send_flags::none);
+    }
 }
 
 
@@ -36,7 +52,7 @@ int main(){
 
     //Initalize socket
     zmq::context_t context (1);
-    zmq::socket_t pubSocket (context, zmq::socket_type::pub);
+    zmq::socket_t pubSocket (context, zmq::socket_type::rep);
     pubSocket.bind ("tcp://*:5555");
 
     //Initalize socket
@@ -78,6 +94,7 @@ int main(){
     Player player3(6, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
 
     std::thread platformThread(movePlatforms, movingObjects);
+    std::thread playerThread(publishPlayerLocations);
 
     while(true){
 
