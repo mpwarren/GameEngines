@@ -7,8 +7,9 @@
 class CollidableObject : public sf::RectangleShape{
 
     public:
+        int id;
 
-        CollidableObject(sf::Vector2f size, sf::Vector2f position, std::string texturePath);
+        CollidableObject(int passedId, sf::Vector2f size, sf::Vector2f position, std::string texturePath);
 
         void resolveColision(CollidableObject* other);
 

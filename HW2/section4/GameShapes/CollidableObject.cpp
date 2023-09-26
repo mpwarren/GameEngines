@@ -1,8 +1,9 @@
 #include "CollidableObject.h"
 
-CollidableObject::CollidableObject(sf::Vector2f size, sf::Vector2f position, std::string texturePath) : sf::RectangleShape(size){
+CollidableObject::CollidableObject(int passedId, sf::Vector2f size, sf::Vector2f position, std::string texturePath) : sf::RectangleShape(size){
     setPosition(position);
     applyTexture(texturePath);
+    id = passedId;
 }
 
 void CollidableObject::applyTexture(std::string filePath){

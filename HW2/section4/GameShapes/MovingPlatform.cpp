@@ -1,6 +1,6 @@
 #include "MovingPlatform.h"
 
-MovingPlatform::MovingPlatform(sf::Vector2f size, sf::Vector2f position, std::string texturePath, Direction dir, float v, int dist) : Platform(size, position, texturePath), platformDirection{dir}, velocity{v}, distance{dist}{
+MovingPlatform::MovingPlatform(int passedId, sf::Vector2f size, sf::Vector2f position, std::string texturePath, Direction dir, float v, int dist) : Platform(passedId, size, position, texturePath), platformDirection{dir}, velocity{v}, distance{dist}{
     startPoint = getPosition();
     if(dir == Direction::horizontal){
         endPoint = sf::Vector2f(startPoint.x + distance, startPoint.y);
@@ -11,19 +11,19 @@ MovingPlatform::MovingPlatform(sf::Vector2f size, sf::Vector2f position, std::st
 }
 
 
-void MovingPlatform::movePosition(int64_t frameDelta){
+void MovingPlatform::movePosition(){
     sf::Vector2f currentPosition = getPosition();
     if(platformDirection == Direction::horizontal){
         if(currentPosition.x > endPoint.x || currentPosition.x < startPoint.x){
             currentlyMoving *= -1;
         }
-        move(currentlyMoving * velocity * frameDelta, 0);
+        move(currentlyMoving * velocity, 0);
     }
     else if(platformDirection == Direction::vertical){
         if(currentPosition.y > endPoint.y || currentPosition.y < startPoint.y){
             currentlyMoving *= -1;
         }
-        move(0, currentlyMoving * velocity * frameDelta);
+        move(0, currentlyMoving * velocity);
     }
 }
 

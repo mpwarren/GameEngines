@@ -1,11 +1,19 @@
 CC=g++
 SHAPESDIR = GameShapes/
 
-hw2exe: hw2.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o
-	$(CC) hw2.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o hw2exe -lsfml-graphics -lsfml-window -lsfml-system -pthread
+all: server client
 
-hw2.o: hw2.cpp $(SHAPESDIR)CollidableObject.h $(SHAPESDIR)Platform.h $(SHAPESDIR)MovingPlatform.h
-	$(CC) -c hw2.cpp -o hw2.o
+server: MainServer.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o
+	$(CC) MainServer.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o server -lsfml-graphics -lsfml-system -pthread -lzmq
+
+client: GameClient.o CollidableObject.o MovingPlatform.o Platform.o Player.o
+	$(CC) GameClient.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o client -lsfml-graphics -lsfml-window -lsfml-system -pthread -lzmq
+
+MainServer.o: MainServer.cpp  $(SHAPESDIR)CollidableObject.h $(SHAPESDIR)Platform.h $(SHAPESDIR)MovingPlatform.h
+	$(CC) -c MainServer.cpp -lzmq -lpthread
+
+GameClient.o: GameClient.cpp  $(SHAPESDIR)CollidableObject.h $(SHAPESDIR)Platform.h $(SHAPESDIR)MovingPlatform.h
+	$(CC) -c GameClient.cpp -lzmq -lpthread
 
 Timeline.o: Timeline.h Timeline.cpp
 	$(CC) -c Timeline.cpp
