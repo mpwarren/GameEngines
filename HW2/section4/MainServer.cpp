@@ -29,7 +29,7 @@ void movePlatforms(std::vector<MovingPlatform*> movingObjects){
 }
 
 void publishPlayerLocations(){
-    zmq::context_t context (1);
+    zmq::context_t context (2);
     zmq::socket_t playerHasMovedSocket (context, zmq::socket_type::rep);
     playerHasMovedSocket.bind ("tcp://*:5558");
 
@@ -41,7 +41,9 @@ void publishPlayerLocations(){
         zmq::message_t playerPositionMessage(64);
         playerHasMovedSocket.recv(playerPositionMessage, zmq::recv_flags::none);
         zmq::message_t rep(0);
-        playerHasMovedSocket.send(rep, 0);
+        playerHasMovedSocket.send(rep, zmq::send_flags::none);
+
+        std::cout<< "PLAYER JUST MOVED: " << playerPositionMessage.to_string() << std::endl;
 
         publishPlayerDataSocket.send(playerPositionMessage, zmq::send_flags::none);
     }
@@ -51,13 +53,19 @@ void publishPlayerLocations(){
 int main(){
 
     //Initalize socket
-    zmq::context_t context (1);
+    zmq::context_t context (4);
     zmq::socket_t pubSocket (context, zmq::socket_type::rep);
     pubSocket.bind ("tcp://*:5555");
 
     //Initalize socket
     zmq::socket_t repSocket (context, zmq::socket_type::rep);
     repSocket.bind ("tcp://*:5556");
+
+    zmq::socket_t playerHasMovedSocket (context, zmq::socket_type::rep);
+    playerHasMovedSocket.bind ("tcp://*:5558");
+
+    zmq::socket_t publishPlayerDataSocket (context, zmq::socket_type::pub);
+    publishPlayerDataSocket.bind ("tcp://*:5559");
 
 
 
@@ -94,12 +102,71 @@ int main(){
     Player player3(6, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
 
     std::thread platformThread(movePlatforms, movingObjects);
-    std::thread playerThread(publishPlayerLocations);
+    //std::thread playerThread(publishPlayerLocations);
+
+    zmq::pollitem_t items [] = {
+        { repSocket, 0, ZMQ_POLLIN, 0 },
+        { playerHasMovedSocket, 0, ZMQ_POLLIN, 0 }
+    };
+
+    std::map<int, std::string> playerPositions;
+    playerPositions[4] = "4 50 50";
+    playerPositions[5] = "4 50 50";
+    playerPositions[6] = "4 50 50";
+
 
     while(true){
-
-
         zmq::message_t request(3);
+
+        zmq::poll(&items [0], 2, -1);
+
+        if(items[0].revents & ZMQ_POLLIN){
+            repSocket.recv (request, zmq::recv_flags::none);
+
+            std::cout << "NEW PLAYER" << std::endl;
+
+            if(playersIn == 0){
+                globalPositions[player1.id] = &player1;
+            }
+            else if(playersIn == 1){
+                globalPositions[player2.id] = &player2;
+            }
+            else if(playersIn == 2){
+                globalPositions[player3.id] = &player3;
+            }
+
+            playersIn++;
+
+            //send joining response
+            zmq::message_t playerIdMessage(1);
+            memcpy(playerIdMessage.data(), std::to_string(playersIn).c_str(), 1);
+            repSocket.send(playerIdMessage, zmq::send_flags::none);
+
+            //publish other players movement
+            if(playersIn >= 2){
+                zmq::message_t posMessage(7);
+                memcpy(posMessage.data(), playerPositions[playersIn + 3].c_str(), 7);
+                publishPlayerDataSocket.send(posMessage, zmq::send_flags::none);
+
+            }
+            if(playersIn == 3){
+                zmq::message_t posMessage(7);
+                memcpy(posMessage.data(), playerPositions[playersIn + 3].c_str(), 7);
+                publishPlayerDataSocket.send(posMessage, zmq::send_flags::none);
+            }
+        }
+        if(items[1].revents & ZMQ_POLLIN){
+            zmq::message_t playerPositionMessage(64);
+            playerHasMovedSocket.recv(playerPositionMessage, zmq::recv_flags::dontwait);
+            zmq::message_t rep(0);
+            playerHasMovedSocket.send(rep, zmq::send_flags::none);
+
+            std::cout<< "PLAYER JUST MOVED: " << playerPositionMessage.to_string() << std::endl;
+
+            publishPlayerDataSocket.send(playerPositionMessage, zmq::send_flags::none);
+        }
+
+        /*
         repSocket.recv (request, zmq::recv_flags::none);
         std::string requestStr = request.to_string();
         std::cout<< requestStr << std::endl;
@@ -120,39 +187,19 @@ int main(){
 
             //send joining response
             zmq::message_t playerIdMessage(1);
-            memcpy(playerIdMessage.data(), std::to_string(playersIn + lastPlatformId).c_str(), 1);
+            memcpy(playerIdMessage.data(), std::to_string(playersIn).c_str(), 1);
             repSocket.send(playerIdMessage, zmq::send_flags::none);
         }
-        else{
-            int moreToRead = 1;
-            while(moreToRead != 0){
-                zmq::message_t cordMessage;
-                repSocket.recv(cordMessage, zmq::recv_flags::none);
-                float cord;
-                memcpy(&cord, cordMessage.data(), sizeof(float));
-                std::cout << "CORD: " << cord <<std::endl;
-                
-                size_t moreSize = sizeof(moreToRead);
-                repSocket.getsockopt(ZMQ_RCVMORE, &moreToRead, &moreSize);
-            }
-            //recieving movement
 
-            //publish position
-            // std::string positionString = std::to_string(id) + " " + std::to_string((int)((Player*)globalPositions[id])->getPosition().x) + " " + std::to_string((int)((Player*)globalPositions[id])->getPosition().y);
-            // std::cout << "RESPONSE MESSAGE: " << positionString << std::endl;
-            // zmq::message_t positionUpdate(positionString.size());
-            // memcpy(positionUpdate.data(), positionString.c_str(), positionString.size());
-            // std::cout<< "Sending Message: " << positionUpdate.to_string() << std::endl;
-            // pubSocket.send(positionUpdate, zmq::send_flags::none);
+        zmq::message_t playerPositionMessage(64);
+        playerHasMovedSocket.recv(playerPositionMessage, zmq::recv_flags::dontwait);
+        zmq::message_t rep(0);
+        playerHasMovedSocket.send(rep, zmq::send_flags::none);
 
-            zmq::message_t message(0);
-            repSocket.send(message, zmq::send_flags::none);
-        }
-        //move entity
+        std::cout<< "PLAYER JUST MOVED: " << playerPositionMessage.to_string() << std::endl;
 
-        //check for collisions
-
-        //send update of moved entities
+        publishPlayerDataSocket.send(playerPositionMessage, zmq::send_flags::none);
+        */
     }
 
 

@@ -35,9 +35,38 @@ void platformMovement(std::mutex * renderMutex, std::map<int, MovingPlatform*> p
     }
 }
 
-void moveOtherPlayers(std::vector<Player*> players, int * currentPlayers, std::mutex * otherPlayerMutex){
+void moveOtherPlayers(std::vector<Player*> players, int myId, int * currentPlayers, std::mutex * otherPlayerMutex){
+    zmq::context_t context (1);
+    zmq::socket_t subSocket (context, zmq::socket_type::sub);
+    subSocket.connect ("tcp://localhost:5559");
+    subSocket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
     while(true){
+        zmq::message_t positionUpdate(64);
+        subSocket.recv(positionUpdate, zmq::recv_flags::none);
+        std::string updateString = positionUpdate.to_string();
+        std::istringstream ss(updateString);
+        std::istream_iterator<std::string> begin(ss), end;
+        std::vector<std::string> words(begin, end);
         
+        {
+            std::lock_guard<std::mutex> lock(*otherPlayerMutex);
+            int currentId = stoi(words[0]);
+            if(currentId != myId){
+                std::cout << "Non player position recieved: " << updateString << std::endl;
+                if(currentId > 3 + (*currentPlayers)){
+                    std::cout << "ADDING NEW PLAYER" << std::endl;
+                    (*currentPlayers)++;
+                }
+                float xCord = stof(words[1]);
+                float yCord = stof(words[2]);
+
+                std::cout << "MOVING PLAYER " << updateString << std::endl;
+                players[currentId - 4]->setPosition(sf::Vector2f(xCord, yCord));
+
+            }
+
+        }
+
     }
 }
 
@@ -66,7 +95,7 @@ int main ()
     std::mutex renderMutex;
 
     //  Prepare our context and socket
-    zmq::context_t context (1);
+    zmq::context_t context (3);
 
     zmq::socket_t reqSocket (context, zmq::socket_type::req);
     reqSocket.connect ("tcp://localhost:5556");
@@ -86,28 +115,47 @@ int main ()
     
     zmq::message_t connectionResponse (1);
     reqSocket.recv(connectionResponse, zmq::recv_flags::none);
-    int myId = std::stoi(connectionResponse.to_string());
+    int playersInGame = std::stoi(connectionResponse.to_string());
+    int myId = 3 + playersInGame;
     std::cout << "Connected with id: "<< myId << std::endl;
-
     std::vector<Player*> currentPlayers;
     Player player(myId, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
-    currentPlayres.push_back(&player);
     player.setFillColor(sf::Color(150, 50, 250));
 
-    int playersInGame = 1;
+    Player player2(0, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
+    player2.setFillColor(sf::Color(150, 50, 250));
 
-    Player player(myId + 1, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
-    currentPlayres.push_back(&player2);
-    player.setFillColor(sf::Color(150, 50, 250));
+    Player player3(0, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
+    player3.setFillColor(sf::Color(150, 50, 250));
 
-    Player player(myId + 2, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
-    currentPlayres.push_back(&player3);
-    player.setFillColor(sf::Color(150, 50, 250));
+    if(playersInGame == 1){
+        player2.id = myId + 1;
+        player3.id = myId + 2;
+        currentPlayers.push_back(&player);
+        currentPlayers.push_back(&player2);
+        currentPlayers.push_back(&player3);
+    }
+    else if(playersInGame == 2){
+        player2.id = myId - 1;
+        player3.id = myId + 1;
+        currentPlayers.push_back(&player2);
+        currentPlayers.push_back(&player);
+        currentPlayers.push_back(&player3);
+    }
+    else if(playersInGame == 3){
+        player2.id = myId - 1;
+        player3.id = myId - 2;
+        currentPlayers.push_back(&player3);
+        currentPlayers.push_back(&player2);
+        currentPlayers.push_back(&player);
+    }
+
+
 
     std::thread platformThread(platformMovement, &renderMutex, movingPlatformsMap);
     
     std::mutex otherPlayerMutex;
-    std::thread otherPlayerThread(moveOtherPlayers, currentPlayers, &playersInGame, &otherPlayerMutex);
+    std::thread otherPlayerThread(moveOtherPlayers, currentPlayers, myId, &playersInGame, &otherPlayerMutex);
 
     //Thread to detect and send player movement
     while(window.isOpen()){
@@ -136,28 +184,28 @@ int main ()
         //     std::cout << i <<": " << words[i] << std::endl;
         // }
         bool moved = false;
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
+        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
             {
                 std::lock_guard<std::mutex> lock(renderMutex);
                 player.movePlayer(sf::Keyboard::W);
                 moved = true;
             }
         }
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
+        if(window.hasFocus() &&sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
             {
                 std::lock_guard<std::mutex> lock(renderMutex);
                 player.movePlayer(sf::Keyboard::A);
                 moved = true;
             }
         }
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)){
+        if(window.hasFocus() &&sf::Keyboard::isKeyPressed(sf::Keyboard::S)){
             {
                 std::lock_guard<std::mutex> lock(renderMutex);
                 player.movePlayer(sf::Keyboard::S);
                 moved = true;
             }
         }
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
+        if(window.hasFocus() &&sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
             {
                 std::lock_guard<std::mutex> lock(renderMutex);
                 player.movePlayer(sf::Keyboard::D);
