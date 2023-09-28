@@ -28,6 +28,7 @@ void movePlatforms(std::vector<MovingPlatform*> movingObjects){
     }
 }
 
+/*
 void publishPlayerLocations(){
     zmq::context_t context (2);
     zmq::socket_t playerHasMovedSocket (context, zmq::socket_type::rep);
@@ -48,7 +49,7 @@ void publishPlayerLocations(){
         publishPlayerDataSocket.send(playerPositionMessage, zmq::send_flags::none);
     }
 }
-
+*/
 
 int main(){
 
@@ -142,64 +143,51 @@ int main(){
             memcpy(playerIdMessage.data(), std::to_string(playersIn).c_str(), 1);
             repSocket.send(playerIdMessage, zmq::send_flags::none);
 
-            //publish other players movement
-            if(playersIn >= 2){
-                zmq::message_t posMessage(7);
-                memcpy(posMessage.data(), playerPositions[playersIn + 3].c_str(), 7);
-                publishPlayerDataSocket.send(posMessage, zmq::send_flags::none);
 
-            }
-            if(playersIn == 3){
-                zmq::message_t posMessage(7);
-                memcpy(posMessage.data(), playerPositions[playersIn + 3].c_str(), 7);
-                publishPlayerDataSocket.send(posMessage, zmq::send_flags::none);
-            }
         }
         if(items[1].revents & ZMQ_POLLIN){
             zmq::message_t playerPositionMessage(64);
-            playerHasMovedSocket.recv(playerPositionMessage, zmq::recv_flags::dontwait);
-            zmq::message_t rep(0);
-            playerHasMovedSocket.send(rep, zmq::send_flags::none);
+            playerHasMovedSocket.recv(playerPositionMessage, zmq::recv_flags::none);
 
-            std::cout<< "PLAYER JUST MOVED: " << playerPositionMessage.to_string() << std::endl;
+            zmq::message_t positionReply(64);
+            if(playerPositionMessage.to_string().length() == 1){
 
-            publishPlayerDataSocket.send(playerPositionMessage, zmq::send_flags::none);
+                if(playerPositionMessage.to_string() == "4"){
+                    memcpy(positionReply.data(), playerPositions[4].c_str(), playerPositions[4].length());
+                    playerHasMovedSocket.send(positionReply, zmq::send_flags::none);
+                }
+                else if(playerPositionMessage.to_string() == "5"){
+                    memcpy(positionReply.data(), playerPositions[5].c_str(), playerPositions[4].length());
+                    playerHasMovedSocket.send(positionReply, zmq::send_flags::none);
+                }
+                else if(playerPositionMessage.to_string() == "6"){
+                    memcpy(positionReply.data(), playerPositions[6].c_str(), playerPositions[4].length());
+                    playerHasMovedSocket.send(positionReply, zmq::send_flags::none);
+                }
+            }
+            else{
+                zmq::message_t rep(0);
+                playerHasMovedSocket.send(rep, zmq::send_flags::none);
+
+                std::cout<< "PLAYER JUST MOVED: " << playerPositionMessage.to_string() << std::endl;
+
+                
+                if(playerPositionMessage.to_string().c_str()[0] == '4'){
+                    playerPositions[4] = playerPositionMessage.to_string();
+                }
+                else if(playerPositionMessage.to_string().c_str()[0] == '5'){
+                    playerPositions[5] = playerPositionMessage.to_string();
+                }
+                else if(playerPositionMessage.to_string().c_str()[0] == '6'){
+                    playerPositions[6] = playerPositionMessage.to_string();
+
+                }
+                
+                publishPlayerDataSocket.send(playerPositionMessage, zmq::send_flags::none);
+            }
+
         }
 
-        /*
-        repSocket.recv (request, zmq::recv_flags::none);
-        std::string requestStr = request.to_string();
-        std::cout<< requestStr << std::endl;
-        if(requestStr == "np"){
-            std::cout << "NEW PLAYER" << std::endl;
-
-            if(playersIn == 0){
-                globalPositions[player1.id] = &player1;
-            }
-            else if(playersIn == 1){
-                globalPositions[player2.id] = &player2;
-            }
-            else if(playersIn == 2){
-                globalPositions[player3.id] = &player3;
-            }
-
-            playersIn++;
-
-            //send joining response
-            zmq::message_t playerIdMessage(1);
-            memcpy(playerIdMessage.data(), std::to_string(playersIn).c_str(), 1);
-            repSocket.send(playerIdMessage, zmq::send_flags::none);
-        }
-
-        zmq::message_t playerPositionMessage(64);
-        playerHasMovedSocket.recv(playerPositionMessage, zmq::recv_flags::dontwait);
-        zmq::message_t rep(0);
-        playerHasMovedSocket.send(rep, zmq::send_flags::none);
-
-        std::cout<< "PLAYER JUST MOVED: " << playerPositionMessage.to_string() << std::endl;
-
-        publishPlayerDataSocket.send(playerPositionMessage, zmq::send_flags::none);
-        */
     }
 
 

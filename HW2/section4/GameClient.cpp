@@ -40,6 +40,7 @@ void moveOtherPlayers(std::vector<Player*> players, int myId, int * currentPlaye
     zmq::socket_t subSocket (context, zmq::socket_type::sub);
     subSocket.connect ("tcp://localhost:5559");
     subSocket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
+
     while(true){
         zmq::message_t positionUpdate(64);
         subSocket.recv(positionUpdate, zmq::recv_flags::none);
@@ -128,6 +129,13 @@ int main ()
     Player player3(0, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
     player3.setFillColor(sf::Color(150, 50, 250));
 
+    std::string playerPosString = "" + std::to_string(player.id) + " " + std::to_string(player.getPosition().x) + " " + std::to_string(player.getPosition().y);
+    zmq::message_t posMessage(sizeof(playerPosString));
+    memcpy(posMessage.data(), playerPosString.c_str(), sizeof(playerPosString));
+    sendPlayerDataSocket.send(posMessage, zmq::send_flags::none);
+    zmq::message_t rep(0);
+    sendPlayerDataSocket.recv(rep, zmq::recv_flags::none);
+
     if(playersInGame == 1){
         player2.id = myId + 1;
         player3.id = myId + 2;
@@ -141,6 +149,8 @@ int main ()
         currentPlayers.push_back(&player2);
         currentPlayers.push_back(&player);
         currentPlayers.push_back(&player3);
+
+
     }
     else if(playersInGame == 3){
         player2.id = myId - 1;
@@ -148,6 +158,48 @@ int main ()
         currentPlayers.push_back(&player3);
         currentPlayers.push_back(&player2);
         currentPlayers.push_back(&player);
+    }
+
+    if(playersInGame >= 2){
+        std::cout << "SETTING PLAYER 2 POSITION" << std::endl;
+        zmq::message_t playerIdMessage(1);
+        memcpy(playerIdMessage.data(), std::to_string(player2.id).c_str(), 1);
+        sendPlayerDataSocket.send(playerIdMessage, zmq::send_flags::none);
+
+        //get player 2's position
+        zmq::message_t player2Position(64);
+        sendPlayerDataSocket.recv(player2Position, zmq::recv_flags::none);
+        std::string updateString = player2Position.to_string();
+        std::istringstream ss(updateString);
+        std::istream_iterator<std::string> begin(ss), end;
+        std::vector<std::string> words(begin, end);
+
+        float xCord = stof(words[1]);
+        float yCord = stof(words[2]);
+
+        std::cout << "SETTING PLAYER 2 POSITION OF ID:" << player2.id << std::endl;
+        player2.setPosition(sf::Vector2f(xCord, yCord));
+
+    }
+    if(playersInGame == 3){
+        std::cout << "SETTING PLAYER 3 POSITION OF ID:" << player3.id << std::endl;
+        zmq::message_t playerIdMessage(1);
+        memcpy(playerIdMessage.data(), std::to_string(player3.id).c_str(), 1);
+        sendPlayerDataSocket.send(playerIdMessage, zmq::send_flags::none);
+
+        //get player 3's position
+        zmq::message_t player3Position(64);
+        sendPlayerDataSocket.recv(player3Position, zmq::recv_flags::none);
+        std::string updateString = player3Position.to_string();
+        std::istringstream ss(updateString);
+        std::istream_iterator<std::string> begin(ss), end;
+        std::vector<std::string> words(begin, end);
+
+        float xCord = stof(words[1]);
+        float yCord = stof(words[2]);
+
+        std::cout << "PLAYER 3's POSITION: " << updateString << std::endl;
+        player3.setPosition(sf::Vector2f(xCord, yCord));
     }
 
 
@@ -191,21 +243,21 @@ int main ()
                 moved = true;
             }
         }
-        if(window.hasFocus() &&sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
+        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
             {
                 std::lock_guard<std::mutex> lock(renderMutex);
                 player.movePlayer(sf::Keyboard::A);
                 moved = true;
             }
         }
-        if(window.hasFocus() &&sf::Keyboard::isKeyPressed(sf::Keyboard::S)){
+        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::S)){
             {
                 std::lock_guard<std::mutex> lock(renderMutex);
                 player.movePlayer(sf::Keyboard::S);
                 moved = true;
             }
         }
-        if(window.hasFocus() &&sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
+        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
             {
                 std::lock_guard<std::mutex> lock(renderMutex);
                 player.movePlayer(sf::Keyboard::D);
@@ -234,7 +286,7 @@ int main ()
             if(playersInGame > 1){
                 window.draw(player2);
             }
-            else if(playersInGame > 2 ){
+            if(playersInGame > 2 ){
                 window.draw(player3);
             }
 
