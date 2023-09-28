@@ -224,17 +224,6 @@ int main ()
 
         window.clear(sf::Color::Black);
 
-        //detect and update positions
-        // zmq::message_t positionUpdate(16);
-        // subSocket.recv(positionUpdate, zmq::recv_flags::none);
-        // std::string updateString = positionUpdate.to_string();
-        // std::istringstream ss(updateString);
-        // std::istream_iterator<std::string> begin(ss), end;
-        // std::vector<std::string> words(begin, end);
-
-        // for(int i = 0; i < words.size(); i++){
-        //     std::cout << i <<": " << words[i] << std::endl;
-        // }
         bool moved = false;
         if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
             {
@@ -265,6 +254,23 @@ int main ()
             }
         }
 
+        //check collisions
+        for(CollidableObject* obj : collidableObjects){
+
+            if(player.getGlobalBounds().intersects(obj->getGlobalBounds())){
+
+                //lock mutex until method ends, stopping all other movement until collision is resolved
+                {
+                    std::lock_guard<std::mutex> lock(renderMutex);
+
+                    player.resolveColision(obj);
+                    moved = true;
+                }
+
+
+            }
+        }
+
         if(moved){
             //update server on player's position
             std::string playerPosString = "" + std::to_string(player.id) + " " + std::to_string(player.getPosition().x) + " " + std::to_string(player.getPosition().y);
@@ -275,7 +281,6 @@ int main ()
             sendPlayerDataSocket.recv(rep, zmq::recv_flags::none);
         }
 
-        //check collisions
 
 
 
