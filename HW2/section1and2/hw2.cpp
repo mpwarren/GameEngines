@@ -12,8 +12,6 @@ void moveObjects(std::mutex *renderMutex, sf::RenderWindow *window, Timeline *ga
     
     int64_t lastTime = gameTimeline->getTime();
     
-    bool changedTic = false;
-
     while(window->isOpen()){
 
         // check all the window's events that were triggered since the last iteration of the loop

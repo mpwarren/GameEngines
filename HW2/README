@@ -1,1 +1,19 @@
 Matthew Warren - CSC481 HW2
+
+I combined sections 1 and 2 into a single project, sections 3 and 4 I kept seperate. 
+
+Section 4 should work, so for grading purposes im not sure if you will need to check section 3 but I kept it in just in case.
+
+Each section folder has its own makefile that can be run useing "make" in the main part of the folder
+
+section1and2's makefile will create an executable that can be run with:
+./hw2exe
+
+section 3 and 4's makefile create 2 executables that can be run like so:
+./server
+./client
+
+with ./server to start the server first, and ./client can be run in up to 3 process to connect to the server to performed the desired action.
+
+The writeup is in a pdf at the root of the submission with this README
+
