@@ -11,13 +11,18 @@ int main()
     //Create platforms and player
     Platform platform(sf::Vector2f(780.f, 15.f), sf::Vector2f(10,575), "Textures/brightgrass.png");
 
+    /*
     MovingPlatform horzPlatform(sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), "", Direction::horizontal, 0.5, 200);
     horzPlatform.setFillColor(sf::Color(150, 50, 250));
+    */
 
     MovingPlatform vertPlatform(sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), "", Direction::vertical, 0.5, 400);
     vertPlatform.setFillColor(sf::Color(150, 50, 250));
 
-    Player player(sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
+    MovingPlatform vertPlatform1(sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 500), "", Direction::vertical, -0.5, 10);
+    vertPlatform.setFillColor(sf::Color(150, 50, 250));
+
+    Player player(sf::Vector2f(50,100), sf::Vector2f(50, 50), "");
     player.setFillColor(sf::Color(150, 50, 250));
 
 
@@ -50,13 +55,23 @@ int main()
         window.draw(platform);
 
 
+        /*
         horzPlatform.movePosition();
         player.CheckCollision(horzPlatform);
         window.draw(horzPlatform);
+        */
 
+
+
+        vertPlatform1.movePosition();
+        player.CheckCollision(vertPlatform1);
+        window.draw(vertPlatform1);
+
+        
         vertPlatform.movePosition();
         player.CheckCollision(vertPlatform);
         window.draw(vertPlatform);
+
 
         window.draw(player);
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
