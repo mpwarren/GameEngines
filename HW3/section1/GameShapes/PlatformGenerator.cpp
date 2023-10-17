@@ -1,4 +1,4 @@
-#include "Generator.h"
+#include "PlatformGenerator.h"
 
 std::vector<MovingPlatform*> createMovingPlatforms(){
     

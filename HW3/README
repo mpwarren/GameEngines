@@ -1,19 +1,17 @@
-Matthew Warren - CSC481 HW2
+Matthew Warren - CSC481 HW3
 
-I combined sections 1 and 2 into a single project, sections 3 and 4 I kept seperate. 
+Server thread for handling platform movement, PUB/SUB for sending out new positions (5555)
 
-Section 4 should work, so for grading purposes im not sure if you will need to check section 3 but I kept it in just in case.
+Server thread for handling player communication: Client will first sent REQ/REP: (5556)
+- first time joining:
+	- send back their id, then keep sending messages containing other players id and positions
+- Paused game
+- Their new position, PUB/SUB back out to everyone (5557)
 
-Each section folder has its own makefile that can be run useing "make" in the main part of the folder
 
-section1and2's makefile will create an executable that can be run with:
-./hw2exe
+Check for collision against platforms before applying player movement
 
-section 3 and 4's makefile create 2 executables that can be run like so:
-./server
-./client
 
-with ./server to start the server first, and ./client can be run in up to 3 process to connect to the server to performed the desired action.
+Client has thread to constantly read moving platform updates
 
-The writeup is in a pdf at the root of the submission with this README
-
+Client has thread to handle player actions
