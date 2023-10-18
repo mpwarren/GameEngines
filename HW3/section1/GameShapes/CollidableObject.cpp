@@ -3,16 +3,19 @@
 
 CollidableObject::CollidableObject() : sf::RectangleShape(sf::Vector2f(0,0)), id{-1}  {
     setPosition(sf::Vector2f(0,0));
-    applyTexture("");
+    classTexturePath = "n/a";
+    applyTexture(classTexturePath);
 }
 
 CollidableObject::CollidableObject(int passedId, sf::Vector2f size, sf::Vector2f position, std::string texturePath) : sf::RectangleShape(size), id{passedId} {
     setPosition(position);
-    applyTexture(texturePath);
+    classTexturePath = texturePath == "" ? "n/a" : texturePath;
+    applyTexture(classTexturePath);
+    objId = "CO";
 }
 
 void CollidableObject::applyTexture(std::string filePath){
-    if(!filePath.empty()){
+    if(filePath != "n/a"){
         if(texture.loadFromFile(filePath)){
             setTexture(&texture);
         }
@@ -59,4 +62,9 @@ void CollidableObject::resolveColision(CollidableObject* other){
     }
         
     
+}
+
+std::string CollidableObject::toString(){
+    return objId + " " + std::to_string(id) + " " + std::to_string(getSize().x) + " " + std::to_string(getSize().y)
+        + " " + std::to_string(getPosition().x) + " " + std::to_string(getPosition().y) + " " + classTexturePath;
 }

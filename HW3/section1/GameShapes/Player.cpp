@@ -3,6 +3,7 @@
 
 Player::Player(int id, sf::Vector2f size, sf::Vector2f startPosition, std::string texturePath) : CollidableObject(id, size, startPosition, texturePath){
     setPosition(startPosition);
+    objId = "PL";
 }
 
 void Player::movePlayer(sf::Keyboard::Key key, int64_t frameDelta){

@@ -3,7 +3,6 @@
 #include "GameShapes/MovingPlatform.h"
 #include "GameShapes/Player.h"
 #include "Timeline.h"
-#include "GameShapes/Generator.h"
 #include <iostream>
 #include <thread>
 #include <cmath>
@@ -48,158 +47,56 @@ void movePlatforms(std::vector<MovingPlatform*> movingObjects){
 
 int main(){
 
-    std::vector<MovingPlatform*> movingPlatforms = createMovingPlatforms();
-    std::cout <<"CREATED" << std::endl;
-    //std::cout << std::to_string(movingPlatforms->size()) << std::endl;
-    //std::cout << std::to_string(movingPlatforms->size()) << std::endl;
-    //std::cout << std::to_string(movingPlatforms->size()) << std::endl;
-    std::cout << std::to_string(movingPlatforms.size()) << std::endl;
-    while(!movingPlatforms.empty()) delete movingPlatforms.back(), movingPlatforms.pop_back();
-    std::cout << std::to_string(movingPlatforms.size()) << std::endl;
-    movingPlatforms.clear();
-    std::cout << "done" << std::endl;
-
-    
-    
-
-
-/*
-    //Initalize socket
-    zmq::context_t context (4);
-    zmq::socket_t pubSocket (context, zmq::socket_type::rep);
-    pubSocket.bind ("tcp://*:5555");
-
-    //Initalize socket
-    zmq::socket_t repSocket (context, zmq::socket_type::rep);
-    repSocket.bind ("tcp://*:5556");
-
-    zmq::socket_t playerHasMovedSocket (context, zmq::socket_type::rep);
-    playerHasMovedSocket.bind ("tcp://*:5558");
-
-    zmq::socket_t publishPlayerDataSocket (context, zmq::socket_type::pub);
-    publishPlayerDataSocket.bind ("tcp://*:5559");
-
-
-
     //Create Timelines
     Timeline anchorTimeline;
     Timeline gameTime(&anchorTimeline);
 
-    //Create platforms and player
-    std::vector<MovingPlatform*> movingObjects;
-    std::vector<CollidableObject*> collidableObjects;
+    int id = 1;
 
-    std::map<int, CollidableObject*> globalPositions;
+    std::map<int, CollidableObject*> gameObjects;
 
-    Platform platform(1, sf::Vector2f(780.f, 15.f), sf::Vector2f(10,575), "Textures/brightgrass.png");
-    collidableObjects.push_back(&platform);
-    globalPositions[1] = &platform;
+    Platform platform(id, sf::Vector2f(780.f, 15.f), sf::Vector2f(10,575), "");
+    gameObjects[platform.id] = &platform;
+    id++;
 
-    MovingPlatform horzPlatform(2, sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), "", Direction::horizontal, 0.0003, 200);
+    MovingPlatform horzPlatform(id, sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), "", Direction::horizontal, 0.0003, 200);
     horzPlatform.setFillColor(sf::Color(150, 50, 250));
-    movingObjects.push_back(&horzPlatform);
-    collidableObjects.push_back(&horzPlatform);
-    globalPositions[2] = &horzPlatform;
+    gameObjects[horzPlatform.id] = &horzPlatform;
+    id++;
 
-    MovingPlatform vertPlatform(3, sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), "", Direction::vertical, 0.0003, 400);
+    MovingPlatform vertPlatform(id, sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), "", Direction::vertical, 0.0003, 400);
     vertPlatform.setFillColor(sf::Color(150, 50, 250));
-    movingObjects.push_back(&vertPlatform);
-    collidableObjects.push_back(&vertPlatform);
-    globalPositions[3] = &vertPlatform;
+    gameObjects[vertPlatform.id] = &vertPlatform;
+    id++;
 
-    int lastPlatformId = 3;
-    int playersIn = 0;
-    Player player1(4, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
-    Player player2(5, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
-    Player player3(6, sf::Vector2f(50,50), sf::Vector2f(50, 50), "");
-
-    std::thread platformThread(movePlatforms, movingObjects);
-
-    zmq::pollitem_t items [] = {
-        { repSocket, 0, ZMQ_POLLIN, 0 },
-        { playerHasMovedSocket, 0, ZMQ_POLLIN, 0 }
-    };
-
-    std::map<int, std::string> playerPositions;
-    playerPositions[4] = "4 50 50";
-    playerPositions[5] = "4 50 50";
-    playerPositions[6] = "4 50 50";
-
+    //Initalize sockets
+    zmq::context_t context (1);
+    zmq::socket_t playerConnectionSocket (context, zmq::socket_type::rep);
+    playerConnectionSocket.bind ("tcp://*:5555");
 
     while(true){
-        zmq::message_t request(3);
+        zmq::message_t playerMessage;
+        playerConnectionSocket.recv(playerMessage, zmq::recv_flags::none);
 
-        zmq::poll(&items [0], 2, -1);
+        if(playerMessage.to_string() == "np"){
+            zmq::message_t newResponse(std::to_string(id).length());
+            memcpy(newResponse.data(), std::to_string(id).c_str(), std::to_string(id).length());
+            id++;
+            playerConnectionSocket.send(newResponse, zmq::send_flags::sndmore);
 
-        if(items[0].revents & ZMQ_POLLIN){
-            repSocket.recv (request, zmq::recv_flags::none);
-
-            std::cout << "NEW PLAYER" << std::endl;
-
-            if(playersIn == 0){
-                globalPositions[player1.id] = &player1;
-            }
-            else if(playersIn == 1){
-                globalPositions[player2.id] = &player2;
-            }
-            else if(playersIn == 2){
-                globalPositions[player3.id] = &player3;
-            }
-
-            playersIn++;
-
-            //send joining response
-            zmq::message_t playerIdMessage(1);
-            memcpy(playerIdMessage.data(), std::to_string(playersIn).c_str(), 1);
-            repSocket.send(playerIdMessage, zmq::send_flags::none);
-
-
-        }
-        if(items[1].revents & ZMQ_POLLIN){
-            zmq::message_t playerPositionMessage(64);
-            playerHasMovedSocket.recv(playerPositionMessage, zmq::recv_flags::none);
-
-            zmq::message_t positionReply(64);
-            if(playerPositionMessage.to_string().length() == 1){
-
-                if(playerPositionMessage.to_string() == "4"){
-                    memcpy(positionReply.data(), playerPositions[4].c_str(), playerPositions[4].length());
-                    playerHasMovedSocket.send(positionReply, zmq::send_flags::none);
+            for(int i = 1; i < id - 1; i++){
+                zmq::message_t platformMessage(gameObjects[i]->toString().length());
+                std::cout << "SENDING: " << gameObjects[i]->toString() << "of size" << std::to_string((gameObjects[i]->toString().length())) << std::endl;
+                memcpy(platformMessage.data(), gameObjects[i]->toString().c_str(), gameObjects[i]->toString().length());
+                if(i == id - 2){
+                    playerConnectionSocket.send(platformMessage, zmq::send_flags::none);
                 }
-                else if(playerPositionMessage.to_string() == "5"){
-                    memcpy(positionReply.data(), playerPositions[5].c_str(), playerPositions[4].length());
-                    playerHasMovedSocket.send(positionReply, zmq::send_flags::none);
+                else{
+                    playerConnectionSocket.send(platformMessage, zmq::send_flags::sndmore);
                 }
-                else if(playerPositionMessage.to_string() == "6"){
-                    memcpy(positionReply.data(), playerPositions[6].c_str(), playerPositions[4].length());
-                    playerHasMovedSocket.send(positionReply, zmq::send_flags::none);
-                }
-            }
-            else{
-                zmq::message_t rep(0);
-                playerHasMovedSocket.send(rep, zmq::send_flags::none);
-
-                //std::cout<< "PLAYER JUST MOVED: " << playerPositionMessage.to_string() << std::endl;
-
-                
-                if(playerPositionMessage.to_string().c_str()[0] == '4'){
-                    playerPositions[4] = playerPositionMessage.to_string();
-                }
-                else if(playerPositionMessage.to_string().c_str()[0] == '5'){
-                    playerPositions[5] = playerPositionMessage.to_string();
-                }
-                else if(playerPositionMessage.to_string().c_str()[0] == '6'){
-                    playerPositions[6] = playerPositionMessage.to_string();
-
-                }
-                
-                publishPlayerDataSocket.send(playerPositionMessage, zmq::send_flags::none);
             }
 
         }
-
     }
-
-*/
     
 }

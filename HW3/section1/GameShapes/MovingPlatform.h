@@ -15,6 +15,7 @@ class MovingPlatform : public Platform{
         MovingPlatform();
         MovingPlatform(int id, sf::Vector2f size, sf::Vector2f position, std::string texturePath, Direction dir, float v, int dist);
         void movePosition(int64_t frameDelta);
+        std::string toString() override;
 
     private:
         float velocity;

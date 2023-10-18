@@ -9,18 +9,13 @@
 class PlatformGenerator{
     public:
         PlatformGenerator();
-        std::vector<MovingPlatform> GetMovingPlatforms();
-        std::vector<Platform> GetStaticPlatforms();
-        std::vector<Platform> GetAllPlatforms();
+        ~PlatformGenerator();
+        std::vector<MovingPlatform*> GetMovingPlatforms();
+        std::vector<Platform*> GetStaticPlatforms();
 
     private:
-        std::vector<MovingPlatform> movingPlatforms
-        std::vector<Platform> staticPlatforms;
-        std::vector<MovingPlatform> allPlatforms;
-
-}
-std::vector<MovingPlatform*> createMovingPlatforms();
-
-std::vector<Platform>* createStaticPlatforms();
+        std::vector<MovingPlatform*> movingPlatforms;
+        std::vector<Platform*> staticPlatforms;
+};
 
 #endif

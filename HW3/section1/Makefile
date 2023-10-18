@@ -3,14 +3,11 @@ SHAPESDIR = GameShapes/
 
 all: server client
 
-server: Server.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o Generator.o
-	$(CC) Server.o Generator.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o server -lsfml-graphics -lsfml-system -pthread -lzmq
+server: Server.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o 
+	$(CC) Server.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o server -lsfml-graphics -lsfml-system -pthread -lzmq
 
 client: Client.o CollidableObject.o MovingPlatform.o Platform.o Player.o
 	$(CC) Client.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o client -lsfml-graphics -lsfml-window -lsfml-system -pthread -lzmq
-
-Generator.o: $(SHAPESDIR)Generator.cpp $(SHAPESDIR)Generator.h $(SHAPESDIR)Platform.h $(SHAPESDIR)MovingPlatform.h
-	$(CC) -c $(SHAPESDIR)Generator.cpp
 
 Server.o: Server.cpp  $(SHAPESDIR)CollidableObject.h $(SHAPESDIR)Platform.h $(SHAPESDIR)MovingPlatform.h
 	$(CC) -c Server.cpp -lzmq -lpthread

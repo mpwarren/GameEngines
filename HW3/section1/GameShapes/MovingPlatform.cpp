@@ -13,6 +13,7 @@ MovingPlatform::MovingPlatform(int id, sf::Vector2f size, sf::Vector2f position,
     else if(dir == Direction::vertical){
         endPoint = sf::Vector2f(startPoint.x, startPoint.y + distance);
     }
+    objId = "MP";
 }
 
 
@@ -32,3 +33,8 @@ void MovingPlatform::movePosition(int64_t frameDelta){
     }
 }
 
+std::string MovingPlatform::toString(){
+    return objId + " " + std::to_string(id) + " " + std::to_string(getSize().x) + " " + std::to_string(getSize().y)
+        + " " + std::to_string(getPosition().x) + " " + std::to_string(getPosition().y) + " " + classTexturePath + 
+        " " + std::to_string((int)platformDirection) + " " + std::to_string(velocity) + " " + std::to_string(distance);
+}
