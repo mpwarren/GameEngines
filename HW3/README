@@ -15,3 +15,7 @@ Check for collision against platforms before applying player movement
 Client has thread to constantly read moving platform updates
 
 Client has thread to handle player actions
+
+
+MODEL DESIGN:
+- Have objects that hold most information (behavior, )

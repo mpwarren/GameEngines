@@ -5,13 +5,35 @@
 #include "GameShapes/Player.h"
 #include <zmq.hpp>
 #include <mutex>
+#include <thread>
+#include "Timeline.h"
 
 
 std::mutex platformMutex;
 
-// void platformMovement(std::vector<MovingPlatform*> movingPlatforms){
+void platformMovement(std::map<int, CollidableObject*>* gameObjects){
+    //  Prepare our context and socket
+    zmq::context_t context (1);
+    zmq::socket_t platformReciever (context, zmq::socket_type::sub);
+    platformReciever.connect ("tcp://localhost:5555");
+    platformReciever.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
-// }
+    while(true){
+        zmq::message_t positionUpdate;
+        //std::cout << "WAITING" << std::endl;
+        platformReciever.recv(positionUpdate, zmq::recv_flags::none);
+        std::string updateString = positionUpdate.to_string();
+        //std::cout << "GOT: " << updateString << std::endl;
+        std::istringstream ss(updateString);
+        std::istream_iterator<std::string> begin(ss), end;
+        std::vector<std::string> words(begin, end);
+        {
+            std::lock_guard<std::mutex> lock(platformMutex);
+            std::cout << "SETTING: " << updateString << std::endl;
+            gameObjects->at(stoi(words[0]))->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
+        }
+    }
+}
 
 
 int main(){
@@ -23,7 +45,11 @@ int main(){
     //Connect to server
     zmq::context_t context (3);
     zmq::socket_t newPlayerSocket (context, zmq::socket_type::req);
-    newPlayerSocket.connect ("tcp://localhost:5555");
+    newPlayerSocket.connect ("tcp://localhost:5556");
+
+    // zmq::socket_t platformReciever (context, zmq::socket_type::sub);
+    // platformReciever.connect ("tcp://localhost:5555");
+    // platformReciever.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
     zmq::message_t newConnection(2);
     memcpy(newConnection.data(), "np", 2);
@@ -68,27 +94,59 @@ int main(){
 
     sf::RenderWindow window(sf::VideoMode(800, 600), "My Window", sf::Style::Default);
 
+    std::thread platformThread(platformMovement, &gameObjects);
+
+    Timeline anchorTimeline;
+    Timeline gameTime(&anchorTimeline);
+    int64_t lastTime = gameTime.getTime();
+
     while(window.isOpen()){
         
         // check all the window's events that were triggered since the last iteration of the loop
         sf::Event event;
         while (window.pollEvent(event))
         {
-            // "close requested" event: we close the window
             if (event.type == sf::Event::Closed)
                 window.close();
+        }
 
 
-            window.clear(sf::Color::Black);
+        window.clear(sf::Color::Black);
 
+
+        int64_t currentTime = gameTime.getTime();
+        int64_t frameDelta = currentTime - lastTime;
+        lastTime = currentTime;
+
+        bool moved = false;
+        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
+            thisPlayer.movePlayer(sf::Keyboard::W, frameDelta);
+            moved = true;
+        }
+        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
+            thisPlayer.movePlayer(sf::Keyboard::A, frameDelta);
+            moved = true;
+        }
+        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::S)){
+            thisPlayer.movePlayer(sf::Keyboard::S, frameDelta);
+            moved = true;
+        }
+        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
+            thisPlayer.movePlayer(sf::Keyboard::D, frameDelta);
+            moved = true;
+        }
+
+
+
+        {
+            std::lock_guard<std::mutex> lock(platformMutex);
             for(auto const& obj : gameObjects){
                 window.draw(*obj.second);
             }
-            
-            window.display();
-
-
         }
+
+        
+        window.display();
     }
 
     //

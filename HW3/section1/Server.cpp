@@ -7,8 +7,8 @@
 #include <thread>
 #include <cmath>
 
-/*
-void movePlatforms(std::map<int, CollidableObject*> movingObjects){
+
+void movePlatforms(std::map<int, CollidableObject*>* gameObjects){
     //Initalize socket
     zmq::context_t context (2);
 
@@ -17,33 +17,46 @@ void movePlatforms(std::map<int, CollidableObject*> movingObjects){
     //int conflate = 1;
     //platformMovementSocket.setsockopt(ZMQ_CONFLATE, &conflate, sizeof(conflate));
 
-    platformMovementSocket.bind ("tcp://*:5557");
+    platformMovementSocket.bind ("tcp://*:5555");
 
     //Create Timelines
     Timeline anchorTimeline;
     Timeline platformTime(&anchorTimeline);
     int64_t lastTime = platformTime.getTime();
 
+    std::vector<MovingPlatform*> movingPlatforms;
+    for(auto const& obj : *gameObjects){
+        if(obj.second->objId == "MP"){
+            movingPlatforms.push_back((MovingPlatform*)obj.second);
+        }
+    }
+
+    std::cout << std::to_string(movingPlatforms.size()) << std::endl;
 
     while (true){
 
         int64_t currentTime = platformTime.getTime();
         int64_t frameDelta = currentTime - lastTime;
         lastTime = currentTime;
+        //std::cout << std::to_string(frameDelta) << std::endl;
+        if(frameDelta != 0){
+            //std::cout << std::to_string(currentTime) << " - " << std::to_string(lastTime) << std::endl;
+            for(MovingPlatform* obj : movingPlatforms){
+                obj->movePosition(frameDelta);
 
-        for(MovingPlatform* obj : movingObjects){
-            obj->movePosition(frameDelta);
-
-            std::string platformPositionStr = "" + std::to_string(obj->id) + " " + std::to_string(obj->getPosition().x) + " " + std::to_string(obj->getPosition().y) + "\0";
-
-            zmq::message_t posMessage(sizeof(platformPositionStr));
-            memcpy(posMessage.data(), platformPositionStr.c_str(), sizeof(platformPositionStr));
-            platformMovementSocket.send(posMessage, zmq::send_flags::none);
-            
+                std::string platformPositionStr = "" + std::to_string(obj->id) + " " + std::to_string(obj->getPosition().x) + " " + std::to_string(obj->getPosition().y) + "\0";
+                //std::cout << "SENDING MESSAGE: " << platformPositionStr << std::endl;
+                zmq::message_t posMessage(platformPositionStr.length());
+                memcpy(posMessage.data(), platformPositionStr.c_str(), platformPositionStr.length());
+                platformMovementSocket.send(posMessage, zmq::send_flags::none);
+                //std::cout << "SENT" << std::endl;
+                //usleep(10000);
+            }
         }
+
     }
 }
-*/
+
 
 
 int main(){
@@ -60,20 +73,22 @@ int main(){
     gameObjects[platform.id] = &platform;
     id++;
 
-    MovingPlatform horzPlatform(id, sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), "", Direction::horizontal, 0.0003, 200);
+    MovingPlatform horzPlatform(id, sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), "", Direction::horizontal, 0.3, 200);
     horzPlatform.setFillColor(sf::Color(150, 50, 250));
     gameObjects[horzPlatform.id] = &horzPlatform;
     id++;
 
-    MovingPlatform vertPlatform(id, sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), "", Direction::vertical, 0.0003, 400);
+    MovingPlatform vertPlatform(id, sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), "", Direction::vertical, 0.3, 400);
     vertPlatform.setFillColor(sf::Color(150, 50, 250));
     gameObjects[vertPlatform.id] = &vertPlatform;
     id++;
 
+    std::thread platformThread(movePlatforms, &gameObjects);
+
     //Initalize sockets
     zmq::context_t context (1);
     zmq::socket_t playerConnectionSocket (context, zmq::socket_type::rep);
-    playerConnectionSocket.bind ("tcp://*:5555");
+    playerConnectionSocket.bind ("tcp://*:5556");
 
     while(true){
         zmq::message_t playerMessage;
