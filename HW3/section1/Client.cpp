@@ -2,9 +2,21 @@
 #include "GameShapes/CollidableObject.h"
 #include "GameShapes/Platform.h"
 #include "GameShapes/MovingPlatform.h"
+#include "GameShapes/Player.h"
 #include <zmq.hpp>
+#include <mutex>
+
+
+std::mutex platformMutex;
+
+// void platformMovement(std::vector<MovingPlatform*> movingPlatforms){
+
+// }
+
 
 int main(){
+
+    sf::Vector2f spawnPoint(50,50);
 
     std::map<int, CollidableObject*> gameObjects;
 
@@ -19,10 +31,11 @@ int main(){
 
     //Get Id and create player object
 
-    //zmq::message_t idMessage(2);
-    //std::cout << "WAITING FOR MESSAGE" << std::endl;
-    //newPlayerSocket.recv(idMessage, zmq::recv_flags::none);
-    //std::cout << "ID: " << idMessage.to_string() << std::endl;
+    zmq::message_t idMessage(2);
+    newPlayerSocket.recv(idMessage, zmq::recv_flags::none);
+    std::cout << "ID: " << idMessage.to_string() << std::endl;
+    Player thisPlayer(stoi(idMessage.to_string()), sf::Vector2f(50,50), spawnPoint, "");
+    gameObjects[thisPlayer.id] = &thisPlayer;
 
     int moreToRead = 1;
     while(moreToRead != 0){
@@ -53,8 +66,29 @@ int main(){
         std::cout << gameObjects[i]->toString() << std::endl;
     }
 
-    while(true){
+    sf::RenderWindow window(sf::VideoMode(800, 600), "My Window", sf::Style::Default);
 
+    while(window.isOpen()){
+        
+        // check all the window's events that were triggered since the last iteration of the loop
+        sf::Event event;
+        while (window.pollEvent(event))
+        {
+            // "close requested" event: we close the window
+            if (event.type == sf::Event::Closed)
+                window.close();
+
+
+            window.clear(sf::Color::Black);
+
+            for(auto const& obj : gameObjects){
+                window.draw(*obj.second);
+            }
+            
+            window.display();
+
+
+        }
     }
 
     //

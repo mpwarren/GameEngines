@@ -8,7 +8,7 @@
 #include <cmath>
 
 /*
-void movePlatforms(std::vector<MovingPlatform*> movingObjects){
+void movePlatforms(std::map<int, CollidableObject*> movingObjects){
     //Initalize socket
     zmq::context_t context (2);
 
@@ -44,6 +44,7 @@ void movePlatforms(std::vector<MovingPlatform*> movingObjects){
     }
 }
 */
+
 
 int main(){
 
