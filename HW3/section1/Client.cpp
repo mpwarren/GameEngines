@@ -51,12 +51,20 @@ void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, int th
         std::vector<std::string> words = parseMessage(positionUpdate.to_string());
         
         //NEW PLAYER
-        if(words[0] == "PL"){
+        if(words[0] == PLAYER_ID){
             std::cout << "NEW PLAYER" << std::endl;
             int id = stoi(words[1]);
             {
                 std::lock_guard<std::mutex> lock(platformMutex);
                 gameObjects->insert(std::pair<int, CollidableObject*>(id, new Player(id, sf::Vector2f(stof(words[2]), stof(words[3])), sf::Vector2f(stof(words[4]), stof(words[5])), words[6])));
+            }
+        }
+        else if(words[0] == DELETE_SIGN){
+            {
+                std::lock_guard<std::mutex> lock(platformMutex);
+                int id = stoi(words[1]);
+                delete gameObjects->at(id);
+                gameObjects->erase(id);              
             }
         }
         else{
@@ -88,7 +96,7 @@ int main(){
     newPlayerSocket.connect ("tcp://localhost:5556");
 
     zmq::message_t newConnection(2);
-    memcpy(newConnection.data(), "np", 2);
+    memcpy(newConnection.data(), NEW_PLAYER_SIGN.c_str(), 2);
     newPlayerSocket.send(newConnection, zmq::send_flags::none);
 
     //Get Id and create player object
@@ -105,20 +113,20 @@ int main(){
         std::vector<std::string> params = parseMessage(objectMessage.to_string());
         
         std::cout << "Message: " << objectMessage.to_string() << std::endl;
-        if(params[0] == "PT"){
+        if(params[0] == PLATFORM_ID){
             int id = stoi(params[1]);
             Platform* pt = new Platform(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), params[6]);
             gameObjects[id] = pt;
         }
-        else if(params[0] == "MP"){
+        else if(params[0] == MOVING_PLATFORM_ID){
             int id = stoi(params[1]);
             gameObjects[id] = new MovingPlatform(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), params[6], (Direction)stoi(params[7]), stof(params[8]), stoi(params[9]));
         }
-        else if(params[0] == "PL"){
+        else if(params[0] == PLAYER_ID){
             int id = stoi(params[1]);
             gameObjects[id] = new Player(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), params[6]);
         }
-        else if(params[0] == "SP"){
+        else if(params[0] == SPAWN_POINT_ID){
             sp = SpawnPoint(sf::Vector2f(stof(params[1]), stof(params[2])));
         }
         else{
@@ -203,5 +211,12 @@ int main(){
         window.display();
     }
 
-    //
+    //remove player from game
+    std::string playerPosString = DELETE_SIGN + " " + std::to_string(thisPlayer->id);
+    zmq::message_t posMessage(playerPosString.length());
+    memcpy(posMessage.data(), playerPosString.c_str(), playerPosString.length());
+
+    newPlayerSocket.send(posMessage, zmq::send_flags::none);
+    zmq::message_t rep(0);
+    newPlayerSocket.recv(rep, zmq::recv_flags::none); 
 }

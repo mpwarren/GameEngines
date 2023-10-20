@@ -34,7 +34,7 @@ void movePlatforms(std::map<int, CollidableObject*>* gameObjects){
 
     std::vector<MovingPlatform*> movingPlatforms;
     for(auto const& obj : *gameObjects){
-        if(obj.second->objId == "MP"){
+        if(obj.second->objId == MOVING_PLATFORM_ID){
             movingPlatforms.push_back((MovingPlatform*)obj.second);
         }
     }
@@ -48,7 +48,7 @@ void movePlatforms(std::map<int, CollidableObject*>* gameObjects){
             for(MovingPlatform* obj : movingPlatforms){
                 obj->movePosition(frameDelta);
 
-                std::string platformPositionStr = "" + std::to_string(obj->id) + " " + std::to_string(obj->getPosition().x) + " " + std::to_string(obj->getPosition().y) + "\0";
+                std::string platformPositionStr = std::to_string(obj->id) + " " + std::to_string(obj->getPosition().x) + " " + std::to_string(obj->getPosition().y) + "\0";
                 zmq::message_t posMessage(platformPositionStr.length());
                 memcpy(posMessage.data(), platformPositionStr.c_str(), platformPositionStr.length());
                 platformMovementSocket.send(posMessage, zmq::send_flags::none);
@@ -102,7 +102,7 @@ int main(){
         zmq::message_t playerMessage;
         playerConnectionSocket.recv(playerMessage, zmq::recv_flags::none);
 
-        if(playerMessage.to_string() == "np"){
+        if(playerMessage.to_string() == NEW_PLAYER_SIGN){
             //Send the client their player's id
             zmq::message_t newResponse(std::to_string(id).length());
             memcpy(newResponse.data(), std::to_string(id).c_str(), std::to_string(id).length());
@@ -112,9 +112,9 @@ int main(){
             gameObjects[id] = new Player(id, sf::Vector2f(50, 50), sp.getSpawnPoint(), "");
 
             //send platform and other collidable objects
-            for(int i = 1; i <= id; i++){
-                zmq::message_t platformMessage(gameObjects[i]->toString().length());
-                memcpy(platformMessage.data(), gameObjects[i]->toString().c_str(), gameObjects[i]->toString().length());
+            for(auto const& obj : gameObjects){
+                zmq::message_t platformMessage(obj.second->toString().length());
+                memcpy(platformMessage.data(), obj.second->toString().c_str(), obj.second->toString().length());
                 playerConnectionSocket.send(platformMessage, zmq::send_flags::sndmore);
             }
 
@@ -133,12 +133,20 @@ int main(){
             id++;
         }
         else{
-            //a player moved
+            //player is moving or quitting
             
             //update the server's game object list with the new position
             std::vector<std::string> words = parseMessage(playerMessage.to_string());
 
-            gameObjects[stoi(words[0])]->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
+            if(words[0] == DELETE_SIGN){
+                int id = stoi(words[1]);
+                delete gameObjects[id];
+                gameObjects.erase(id);
+            }
+            else{
+                gameObjects[stoi(words[0])]->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
+            }
+            //send an empty reply for the req/rep
             playerConnectionSocket.send(zmq::message_t(), zmq::send_flags::none);
 
             //send out the position to all other clients

@@ -13,7 +13,7 @@ MovingPlatform::MovingPlatform(int id, sf::Vector2f size, sf::Vector2f position,
     else if(dir == Direction::vertical){
         endPoint = sf::Vector2f(startPoint.x, startPoint.y + distance);
     }
-    objId = "MP";
+    objId = MOVING_PLATFORM_ID;
 }
 
 

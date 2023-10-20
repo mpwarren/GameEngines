@@ -3,6 +3,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <iostream>
+#include "../Constants.h"
 
 class CollidableObject : public sf::RectangleShape{
 

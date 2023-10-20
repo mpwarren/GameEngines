@@ -2,7 +2,7 @@
 
 SpawnPoint::SpawnPoint(sf::Vector2f spawn){
     spawnPoint = spawn;
-    objId = "SP";
+    objId = SPAWN_POINT_ID;
 }
 
 sf::Vector2f SpawnPoint::getSpawnPoint(){

@@ -2,6 +2,7 @@
 #define SPAWN_H
 
 #include <SFML/Graphics.hpp>
+#include "Constants.h"
 
 class SpawnPoint{
     public:
