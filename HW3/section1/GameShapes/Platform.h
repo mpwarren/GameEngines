@@ -3,7 +3,6 @@
 
 #include <SFML/Graphics.hpp>
 #include "CollidableObject.h"
-#include "../Constants.h"
 
 class Platform : public CollidableObject{
     public:
