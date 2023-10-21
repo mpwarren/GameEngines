@@ -2,12 +2,13 @@
 #include <chrono>
 #include <cstdint>
 #include <iostream>
+#include "Constants.h"
 
 
 
 Timeline::Timeline(Timeline* anchorParam){
     anchor = anchorParam;
-    tic = 2;
+    tic = TIC_NORMAL;
     startTime = anchor->getTime(); 
     type = 1;
     paused = false;

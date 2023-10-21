@@ -7,3 +7,8 @@ const std::string SPAWN_POINT_ID = "SP";
 
 const std::string DELETE_SIGN = "D";
 const std::string NEW_PLAYER_SIGN = "NP";
+const std::string PAUSING_SIGN = "P";
+
+const int TIC_HALF = 4;
+const int TIC_NORMAL = 2;
+const int TIC_TWO_TIMES = 1;

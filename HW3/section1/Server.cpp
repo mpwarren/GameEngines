@@ -16,21 +16,20 @@ std::vector<std::string> parseMessage(std::string strToParse){
     return words;
 }
 
-void movePlatforms(std::map<int, CollidableObject*>* gameObjects){
+void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gameObjects){
     //Initalize socket
     zmq::context_t context (2);
 
     zmq::socket_t platformMovementSocket (context, zmq::socket_type::pub);
-
     //int conflate = 1;
     //platformMovementSocket.setsockopt(ZMQ_CONFLATE, &conflate, sizeof(conflate));
-
     platformMovementSocket.bind ("tcp://*:5555");
 
-    //Create Timelines
-    Timeline anchorTimeline;
-    Timeline platformTime(&anchorTimeline);
-    int64_t lastTime = platformTime.getTime();
+    zmq::socket_t pauseListener (context, zmq::socket_type::sub);
+    pauseListener.connect ("tcp://localhost:5558");
+    pauseListener.setsockopt(ZMQ_SUBSCRIBE, "", 0);
+
+    int64_t lastTime = platformTime->getTime();
 
     std::vector<MovingPlatform*> movingPlatforms;
     for(auto const& obj : *gameObjects){
@@ -41,7 +40,20 @@ void movePlatforms(std::map<int, CollidableObject*>* gameObjects){
 
     while (true){
 
-        int64_t currentTime = platformTime.getTime();
+        zmq::message_t pauseListenerMessage;
+        pauseListener.recv(pauseListenerMessage, zmq::recv_flags::dontwait);
+        if(pauseListenerMessage.to_string() == PAUSING_SIGN){
+            if(platformTime->isPaused()){
+                int64_t elapsedTime = platformTime->unpause();
+                lastTime = platformTime->getTime();
+            }
+            else{
+                platformTime->pause(lastTime);
+            }    
+        }
+
+
+        int64_t currentTime = platformTime->getTime();
         int64_t frameDelta = currentTime - lastTime;
         lastTime = currentTime;
         if(frameDelta != 0){
@@ -62,10 +74,6 @@ void movePlatforms(std::map<int, CollidableObject*>* gameObjects){
 
 
 int main(){
-
-    //Create Timelines
-    Timeline anchorTimeline;
-    Timeline gameTime(&anchorTimeline);
 
     //Set Spawn Point
     SpawnPoint sp(sf::Vector2f(50, 50));
@@ -88,15 +96,22 @@ int main(){
     gameObjects[vertPlatform.id] = &vertPlatform;
     id++;
 
-    std::thread platformThread(movePlatforms, &gameObjects);
+    //Create Timelines
+    Timeline anchorTimeline;
+    Timeline platformTime(&anchorTimeline);
+
+    std::thread platformThread(movePlatforms, &platformTime, &gameObjects);
 
     //Initalize sockets
-    zmq::context_t context (1);
+    zmq::context_t context (2);
     zmq::socket_t playerConnectionSocket (context, zmq::socket_type::rep);
     playerConnectionSocket.bind ("tcp://*:5556");
 
     zmq::socket_t playerPositionPublisher (context, zmq::socket_type::pub);
     playerPositionPublisher.bind ("tcp://*:5557");
+
+    zmq::socket_t pausePublisher (context, zmq::socket_type::pub);
+    pausePublisher.bind ("tcp://*:5558");
 
     while(true){
         zmq::message_t playerMessage;
@@ -108,8 +123,10 @@ int main(){
             memcpy(newResponse.data(), std::to_string(id).c_str(), std::to_string(id).length());
             playerConnectionSocket.send(newResponse, zmq::send_flags::sndmore);
 
+            std::cout<< "adding new player " << std::endl;
             //add new player to list of objects
             gameObjects[id] = new Player(id, sf::Vector2f(50, 50), sp.getSpawnPoint(), "");
+            std::cout<< "new player added " << std::endl;
 
             //send platform and other collidable objects
             for(auto const& obj : gameObjects){
@@ -133,7 +150,7 @@ int main(){
             id++;
         }
         else{
-            //player is moving or quitting
+            //player is moving, pausing, or quitting
             
             //update the server's game object list with the new position
             std::vector<std::string> words = parseMessage(playerMessage.to_string());
@@ -142,15 +159,21 @@ int main(){
                 int id = stoi(words[1]);
                 delete gameObjects[id];
                 gameObjects.erase(id);
+                //send out deleted message to all other clients
+                playerPositionPublisher.send(playerMessage, zmq::send_flags::none);
+            }
+            else if(words[0] == PAUSING_SIGN){
+                pausePublisher.send(playerMessage, zmq::send_flags::none);
             }
             else{
                 gameObjects[stoi(words[0])]->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
+                //send out the position to all other clients
+                playerPositionPublisher.send(playerMessage, zmq::send_flags::none);
             }
             //send an empty reply for the req/rep
             playerConnectionSocket.send(zmq::message_t(), zmq::send_flags::none);
 
-            //send out the position to all other clients
-            playerPositionPublisher.send(playerMessage, zmq::send_flags::none);
+
         }
     }
     

@@ -89,11 +89,16 @@ int main(){
     SpawnPoint sp(sf::Vector2f(0,0));
 
     std::map<int, CollidableObject*> gameObjects;
+    std::vector<CollidableObject*> collidableObjects;
 
     //Connect to server
     zmq::context_t context (3);
     zmq::socket_t newPlayerSocket (context, zmq::socket_type::req);
     newPlayerSocket.connect ("tcp://localhost:5556");
+
+    zmq::socket_t pauseListener (context, zmq::socket_type::sub);
+    pauseListener.connect ("tcp://localhost:5558");
+    pauseListener.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
     zmq::message_t newConnection(2);
     memcpy(newConnection.data(), NEW_PLAYER_SIGN.c_str(), 2);
@@ -117,10 +122,13 @@ int main(){
             int id = stoi(params[1]);
             Platform* pt = new Platform(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), params[6]);
             gameObjects[id] = pt;
+            collidableObjects.push_back(pt);
         }
         else if(params[0] == MOVING_PLATFORM_ID){
             int id = stoi(params[1]);
-            gameObjects[id] = new MovingPlatform(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), params[6], (Direction)stoi(params[7]), stof(params[8]), stoi(params[9]));
+            MovingPlatform* mp = new MovingPlatform(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), params[6], (Direction)stoi(params[7]), stof(params[8]), stoi(params[9]));
+            gameObjects[id] = mp;
+            collidableObjects.push_back(mp);
         }
         else if(params[0] == PLAYER_ID){
             int id = stoi(params[1]);
@@ -161,8 +169,41 @@ int main(){
         {
             if (event.type == sf::Event::Closed)
                 window.close();
+
+            if(event.type == sf::Event::KeyPressed){
+                if(event.key.code == sf::Keyboard::P){
+                    zmq::message_t pauseMessage(1);
+                    memcpy(pauseMessage.data(), "P", 1);
+                    newPlayerSocket.send(pauseMessage, zmq::send_flags::none);
+                    zmq::message_t rep(0);
+                    newPlayerSocket.recv(rep, zmq::recv_flags::none); 
+                }
+                if(event.key.code == sf::Keyboard::Z){
+                    gameTime.changeTic(TIC_HALF);
+                    lastTime = gameTime.getTime();
+                }
+                if(event.key.code == sf::Keyboard::X){
+                    gameTime.changeTic(TIC_NORMAL);
+                    lastTime = gameTime.getTime();
+                }
+                if(event.key.code == sf::Keyboard::C){
+                    gameTime.changeTic(TIC_TWO_TIMES);
+                    lastTime = gameTime.getTime();
+                }
+            }
         }
 
+        zmq::message_t pauseListenerMessage(1);
+        pauseListener.recv(pauseListenerMessage, zmq::recv_flags::dontwait);
+        if(pauseListenerMessage.to_string() == PAUSING_SIGN){
+            if(gameTime.isPaused()){
+                int64_t elapsedTime = gameTime.unpause();
+                lastTime = gameTime.getTime();
+            }
+            else{
+                gameTime.pause(lastTime);
+            }    
+        }        
 
         window.clear(sf::Color::Black);
 
@@ -173,21 +214,35 @@ int main(){
 
         bool moved = false;
         if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
-            thisPlayer->movePlayer(sf::Keyboard::W, frameDelta);
-            moved = true;
+            thisPlayer->setJumping();
         }
         if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
             thisPlayer->movePlayer(sf::Keyboard::A, frameDelta);
-            moved = true;
-        }
-        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::S)){
-            thisPlayer->movePlayer(sf::Keyboard::S, frameDelta);
             moved = true;
         }
         if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
             thisPlayer->movePlayer(sf::Keyboard::D, frameDelta);
             moved = true;
         }
+
+        //gravity
+        thisPlayer->gravity(frameDelta);
+        moved = true;
+
+        //collision
+        {
+            std::lock_guard<std::mutex> lock(platformMutex);
+            for(CollidableObject* obj : collidableObjects){
+
+                if(thisPlayer->getGlobalBounds().intersects(obj->getGlobalBounds())){
+                    thisPlayer->resolveColision(obj);
+                    thisPlayer->endJump();
+                    moved = true;
+                }
+            }
+        }
+
+
 
         if(moved){
             //update server on player's position
