@@ -23,6 +23,8 @@ class CollidableObject : public sf::RectangleShape{
         void applyTexture(std::string filePath);
 
         virtual std::string toString();
+
+        virtual void translate(std::string dir, int64_t frameDelta);
     
     private:
         sf::Texture texture;

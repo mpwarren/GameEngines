@@ -68,3 +68,12 @@ std::string CollidableObject::toString(){
     return objId + " " + std::to_string(id) + " " + std::to_string(getSize().x) + " " + std::to_string(getSize().y)
         + " " + std::to_string(getPosition().x) + " " + std::to_string(getPosition().y) + " " + classTexturePath;
 }
+
+void CollidableObject::translate(std::string dir, int64_t frameDelta){
+    if(dir == TRANSFORM_LEFT){
+        move(getPosition().x - frameDelta ,0);
+    }
+    else{
+        move(getPosition().x + frameDelta ,0);
+    }
+}

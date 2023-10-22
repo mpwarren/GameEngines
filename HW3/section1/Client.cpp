@@ -3,6 +3,7 @@
 #include "GameShapes/Platform.h"
 #include "GameShapes/MovingPlatform.h"
 #include "GameShapes/Player.h"
+#include "GameShapes/SideBoundry.h"
 #include <zmq.hpp>
 #include <mutex>
 #include <thread>
@@ -151,7 +152,14 @@ int main(){
         std::cout << gameObjects[i]->toString() << std::endl;
     }
 
-    sf::RenderWindow window(sf::VideoMode(800, 600), "My Window", sf::Style::Default);
+    sf::RenderWindow window(sf::VideoMode(SCENE_WIDTH, SCENE_HEIGHT), "My Window", sf::Style::Default);
+
+    //generate side boundry
+    std::vector<SideBoundry> boundaries;
+    int distanceFromEdge = 50;
+    boundaries.push_back(SideBoundry(100, sf::Vector2f(SCENE_WIDTH - distanceFromEdge , 0), RIGHT_SIDE));
+    boundaries.push_back(SideBoundry(101, sf::Vector2f(distanceFromEdge , 0), LEFT_SIDE));
+
 
     std::thread platformThread(platformMovement, &gameObjects);
     std::thread playerThread(playerPositionUpdates, &gameObjects, thisId);
@@ -242,6 +250,29 @@ int main(){
                 }
             }
 
+            for(SideBoundry sb : boundaries){
+                if(thisPlayer->getGlobalBounds().intersects(sb.getGlobalBounds())){
+                    thisPlayer->resolveColision(&sb);
+                    //LATERAL SHIFT
+                    std::string translationString;
+
+                    if(sb.side == RIGHT_SIDE){
+                        //shift everything left
+                        translationString = TRANSFORM_LEFT + " " + std::to_string(thisPlayer->id) + " " + std::to_string(frameDelta);
+                    }
+                    else{
+                        //shift everything right
+                        translationString = TRANSFORM_RIGHT + " " + std::to_string(thisPlayer->id) + " " + std::to_string(frameDelta);
+                    }
+
+                    zmq::message_t translateMessage(translationString.length());
+                    memcpy(translateMessage.data(), translationString.c_str(), translationString.length());
+                    newPlayerSocket.send(translateMessage, zmq::send_flags::none);
+                    zmq::message_t rep(0);
+                    newPlayerSocket.recv(rep, zmq::recv_flags::none); 
+                }
+            }
+
             thisPlayer->setColliding(playerColliding);
         }
 
@@ -264,6 +295,10 @@ int main(){
                 window.draw(*obj.second);
             }
         }
+
+        //DRAW BOUNDARIES (REMOVE LATER)
+        window.draw(boundaries[0]);
+        window.draw(boundaries[1]);
 
         
         window.display();

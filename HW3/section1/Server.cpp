@@ -42,31 +42,49 @@ void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gam
 
         zmq::message_t pauseListenerMessage;
         pauseListener.recv(pauseListenerMessage, zmq::recv_flags::dontwait);
-        if(pauseListenerMessage.to_string() == PAUSING_SIGN){
-            if(platformTime->isPaused()){
-                int64_t elapsedTime = platformTime->unpause();
-                lastTime = platformTime->getTime();
+
+        bool translated = false;
+
+        if(pauseListenerMessage.to_string().length() > 0){
+            std::vector<std::string> words = parseMessage(pauseListenerMessage.to_string());
+
+            if(words[0] == PAUSING_SIGN){
+                if(platformTime->isPaused()){
+                    int64_t elapsedTime = platformTime->unpause();
+                    lastTime = platformTime->getTime();
+                }
+                else{
+                    platformTime->pause(lastTime);
+                }    
             }
-            else{
-                platformTime->pause(lastTime);
-            }    
+            else if(words[0] == TRANSFORM_LEFT || words[0] == TRANSFORM_RIGHT){
+                for(auto const& obj : *gameObjects){
+                    if(obj.first != 1 and obj.first != stoi(words[1])){
+                        obj.second->translate(words[0], stoi(words[2]));
+                    }
+                }
+                translated = true;
+            }
         }
 
 
         int64_t currentTime = platformTime->getTime();
         int64_t frameDelta = currentTime - lastTime;
         lastTime = currentTime;
-        if(frameDelta != 0){
-            for(MovingPlatform* obj : movingPlatforms){
-                obj->movePosition(frameDelta);
+        if(!translated){
+            if(frameDelta != 0){
+                for(MovingPlatform* obj : movingPlatforms){
+                    obj->movePosition(frameDelta);
 
-                std::string platformPositionStr = std::to_string(obj->id) + " " + std::to_string(obj->getPosition().x) + " " + std::to_string(obj->getPosition().y) + "\0";
-                zmq::message_t posMessage(platformPositionStr.length());
-                memcpy(posMessage.data(), platformPositionStr.c_str(), platformPositionStr.length());
-                platformMovementSocket.send(posMessage, zmq::send_flags::none);
+                    std::string platformPositionStr = std::to_string(obj->id) + " " + std::to_string(obj->getPosition().x) + " " + std::to_string(obj->getPosition().y) + "\0";
+                    zmq::message_t posMessage(platformPositionStr.length());
+                    memcpy(posMessage.data(), platformPositionStr.c_str(), platformPositionStr.length());
+                    platformMovementSocket.send(posMessage, zmq::send_flags::none);
 
+                }
             }
         }
+
 
     }
 }
@@ -75,16 +93,19 @@ void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gam
 
 int main(){
 
-    //Set Spawn Point
-    SpawnPoint sp(sf::Vector2f(50, 50));
+
 
     int id = 1;
 
     std::map<int, CollidableObject*> gameObjects;
 
-    Platform platform(id, sf::Vector2f(780.f, 15.f), sf::Vector2f(10,575), "");
+    int groundHeight = 15;
+    Platform platform(id, sf::Vector2f(SCENE_WIDTH, groundHeight), sf::Vector2f(0,SCENE_HEIGHT - groundHeight), "");
     gameObjects[platform.id] = &platform;
     id++;
+
+    //Set Spawn Point
+    SpawnPoint sp(sf::Vector2f(70, SCENE_HEIGHT - (50 + groundHeight)));
 
     MovingPlatform horzPlatform(id, sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), "", Direction::horizontal, 0.3, 200);
     horzPlatform.setFillColor(sf::Color(150, 50, 250));
@@ -162,7 +183,7 @@ int main(){
                 //send out deleted message to all other clients
                 playerPositionPublisher.send(playerMessage, zmq::send_flags::none);
             }
-            else if(words[0] == PAUSING_SIGN){
+            else if(words[0] == PAUSING_SIGN || words[0] == TRANSFORM_RIGHT || words[0] == TRANSFORM_LEFT){
                 pausePublisher.send(playerMessage, zmq::send_flags::none);
             }
             else{

@@ -6,8 +6,8 @@ all: server client
 server: Server.o Constants.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o 
 	$(CC) Server.o Constants.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o server -lsfml-graphics -lsfml-system -pthread -lzmq
 
-client: Client.o Constants.o SpawnPoint.o CollidableObject.o MovingPlatform.o Platform.o Player.o
-	$(CC) Client.o Constants.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o client -lsfml-graphics -lsfml-window -lsfml-system -pthread -lzmq
+client: Client.o Constants.o SideBoundry.o SpawnPoint.o CollidableObject.o MovingPlatform.o Platform.o Player.o
+	$(CC) Client.o Constants.o SideBoundry.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o client -lsfml-graphics -lsfml-window -lsfml-system -pthread -lzmq
 
 Constants.o: Constants.h Constants.cpp
 	$(CC) -c Constants.cpp
@@ -20,6 +20,9 @@ Server.o: Server.cpp $(SHAPESDIR)CollidableObject.h $(SHAPESDIR)Platform.h $(SHA
 
 Client.o: Client.cpp  $(SHAPESDIR)CollidableObject.h $(SHAPESDIR)Platform.h $(SHAPESDIR)MovingPlatform.h
 	$(CC) -c Client.cpp -lzmq -lpthread
+
+SideBoundry.o: $(SHAPESDIR)SideBoundry.h $(SHAPESDIR)SideBoundry.cpp
+	$(CC) -c $(SHAPESDIR)SideBoundry.cpp
 
 Timeline.o: Timeline.h Timeline.cpp
 	$(CC) -c Timeline.cpp
