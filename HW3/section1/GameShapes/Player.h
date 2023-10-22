@@ -13,12 +13,11 @@ class Player : public CollidableObject{
         void setJumping();
         void jump();
         void gravity(int64_t frameDelta);
-        void endJump();
-        void setNotFalling();
+        void setColliding(bool isColliding);
 
     private:
         bool jumping;
-        bool falling;
+        bool colliding;
         float jumpHeight;
         float jumpPeak;
 };

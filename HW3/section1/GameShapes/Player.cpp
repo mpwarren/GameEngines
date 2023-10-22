@@ -33,7 +33,6 @@ void Player::gravity(int64_t frameDelta){
         move(0, -1 * velocity);
         if(getPosition().y <= jumpPeak){
             jumping = false;
-            falling = true;
             jumpPeak = 0;
         }
     }
@@ -44,23 +43,17 @@ bool Player::isJumping(){
 }
 
 void Player::setJumping(){
-    if(!jumping && !falling){
+    if(!jumping && colliding){
         jumping = true;
         jumpPeak = getPosition().y - jumpHeight;
     }
 }
 
-void Player::endJump(){
-    if(jumping){
+void Player::setColliding(bool isColliding){
+    colliding = isColliding;
+    if(jumping && colliding){
+        //end the jump if it hits something
         jumping = false;
-        falling = true;
         jumpPeak = 0;
     }
-    else{
-        falling = false;
-    }
-}
-
-void Player::setNotFalling(){
-    falling = false;
 }

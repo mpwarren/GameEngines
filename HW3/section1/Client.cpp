@@ -232,14 +232,17 @@ int main(){
         //collision
         {
             std::lock_guard<std::mutex> lock(platformMutex);
+            bool playerColliding = false;
             for(CollidableObject* obj : collidableObjects){
 
                 if(thisPlayer->getGlobalBounds().intersects(obj->getGlobalBounds())){
                     thisPlayer->resolveColision(obj);
-                    thisPlayer->endJump();
+                    playerColliding = true;
                     moved = true;
                 }
             }
+
+            thisPlayer->setColliding(playerColliding);
         }
 
 
