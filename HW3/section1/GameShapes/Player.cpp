@@ -8,17 +8,18 @@ Player::Player(int id, sf::Vector2f size, sf::Vector2f startPosition, std::strin
 }
 
 void Player::movePlayer(sf::Keyboard::Key key, int64_t frameDelta){
-    int xDir = 0;
-    int yDir = 0;
+    float xDir = 0;
+    float yDir = 0;
 
-    int velocity = frameDelta;
+    float velocity = 0.5;
 
     if(key == sf::Keyboard::A){
-        xDir = -1 * velocity;
+        xDir = -1 * velocity * frameDelta;
     }
     else if(key == sf::Keyboard::D){
-        xDir = 1 * velocity;
+        xDir = 1 * velocity * frameDelta;
     }
+    std::cout << std::to_string(xDir) << std::endl;
 
     move(xDir, yDir);
 

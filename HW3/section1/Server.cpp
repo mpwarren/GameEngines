@@ -107,12 +107,12 @@ int main(){
     //Set Spawn Point
     SpawnPoint sp(sf::Vector2f(70, SCENE_HEIGHT - (50 + groundHeight)));
 
-    MovingPlatform horzPlatform(id, sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), "", Direction::horizontal, 0.3, 200);
+    MovingPlatform horzPlatform(id, sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), "", Direction::horizontal, 0.5, 200);
     horzPlatform.setFillColor(sf::Color(150, 50, 250));
     gameObjects[horzPlatform.id] = &horzPlatform;
     id++;
 
-    MovingPlatform vertPlatform(id, sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), "", Direction::vertical, 0.3, 400);
+    MovingPlatform vertPlatform(id, sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), "", Direction::vertical, 0.5, 400);
     vertPlatform.setFillColor(sf::Color(150, 50, 250));
     gameObjects[vertPlatform.id] = &vertPlatform;
     id++;
