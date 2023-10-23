@@ -25,9 +25,10 @@ void Player::movePlayer(sf::Keyboard::Key key, int64_t frameDelta){
 
 }
 
-void Player::gravity(int64_t frameDelta){
+void Player::gravity(int64_t frameDelta, bool groundLevel){
     int velocity = frameDelta;
-    if(!jumping){
+    if(!jumping && !groundLevel){
+        std::cout << "FALL\n";
         move(0, velocity);
     }
     else{
