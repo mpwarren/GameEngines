@@ -27,11 +27,11 @@ void Player::movePlayer(sf::Keyboard::Key key, int64_t frameDelta){
 
 void Player::gravity(int64_t frameDelta, bool groundLevel){
     int velocity = frameDelta;
+    std::cout << std::to_string(groundLevel) << std::endl;
     if(!jumping && !groundLevel){
-        std::cout << "FALL\n";
         move(0, velocity);
     }
-    else{
+    else if(jumping){
         move(0, -1 * velocity);
         if(getPosition().y <= jumpPeak){
             jumping = false;

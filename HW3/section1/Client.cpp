@@ -237,12 +237,11 @@ int main(){
 
         //gravity
         float ground = 585;
-        bool playerColliding = (thisPlayer->getPosition().y + 50 > ground);
+        std::cout << std::to_string(thisPlayer->getPosition().y) << std::endl;
+        bool playerColliding = (thisPlayer->getPosition().y + 50 >= ground);
         thisPlayer->gravity(frameDelta, playerColliding);
         moved = true;
 
-        //bool playerColliding = false;
-        //collision
         {
             std::lock_guard<std::mutex> lock(platformMutex);
             for(CollidableObject* obj : collidableObjects){
