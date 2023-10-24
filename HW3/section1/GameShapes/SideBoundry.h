@@ -7,6 +7,7 @@ class SideBoundry : public CollidableObject{
     public:
         SideBoundry(int id, sf::Vector2f position, std::string thisSide);
         std::string side;
+        bool isCollidedWith;
 };
 
 

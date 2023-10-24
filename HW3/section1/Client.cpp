@@ -91,6 +91,7 @@ int main(){
 
     std::map<int, CollidableObject*> gameObjects;
     std::vector<CollidableObject*> collidableObjects;
+    std::vector<Player*> players;
 
     //Connect to server
     zmq::context_t context (3);
@@ -134,6 +135,7 @@ int main(){
         else if(params[0] == PLAYER_ID){
             int id = stoi(params[1]);
             gameObjects[id] = new Player(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), params[6]);
+            players.push_back((Player*)gameObjects[id]);
         }
         else if(params[0] == SPAWN_POINT_ID){
             sp = SpawnPoint(sf::Vector2f(stof(params[1]), stof(params[2])));
@@ -155,10 +157,12 @@ int main(){
     sf::RenderWindow window(sf::VideoMode(SCENE_WIDTH, SCENE_HEIGHT), "My Window", sf::Style::Default);
 
     //generate side boundry
-    std::vector<SideBoundry> boundaries;
+    std::vector<SideBoundry*> boundaries;
     int distanceFromEdge = 50;
-    boundaries.push_back(SideBoundry(100, sf::Vector2f(SCENE_WIDTH - distanceFromEdge , 0), RIGHT_SIDE));
-    boundaries.push_back(SideBoundry(101, sf::Vector2f(distanceFromEdge , 0), LEFT_SIDE));
+    SideBoundry* boundry1 = new SideBoundry(100, sf::Vector2f(SCENE_WIDTH - distanceFromEdge , 0), RIGHT_SIDE);
+    boundaries.push_back(boundry1);
+    SideBoundry* boundry2 = new SideBoundry(101, sf::Vector2f(distanceFromEdge , 0), LEFT_SIDE);
+    boundaries.push_back(boundry2);
 
 
     std::thread platformThread(platformMovement, &gameObjects);
@@ -261,34 +265,7 @@ int main(){
 
             thisPlayer->setColliding(playerColliding);
         }
-
-        for(SideBoundry sb : boundaries){
-            if(thisPlayer->getGlobalBounds().intersects(sb.getGlobalBounds())){
-                thisPlayer->resolveColision(&sb);
-                //LATERAL SHIFT
-                std::string translationString;
-
-                if(sb.side == RIGHT_SIDE){
-                    //shift everything left
-                    translationString = TRANSFORM_LEFT + " " + std::to_string(thisPlayer->id) + " " + std::to_string(frameDelta);
-                }
-                else{
-                    //shift everything right
-                    translationString = TRANSFORM_RIGHT + " " + std::to_string(thisPlayer->id) + " " + std::to_string(frameDelta);
-                }
-
-                zmq::message_t translateMessage(translationString.length());
-                memcpy(translateMessage.data(), translationString.c_str(), translationString.length());
-                newPlayerSocket.send(translateMessage, zmq::send_flags::none);
-                zmq::message_t rep(0);
-                newPlayerSocket.recv(rep, zmq::recv_flags::none); 
-            }
-        }
-
-
-
-
-
+                        
         if(moved){
             //update server on player's position
             std::string playerPosString = std::to_string(thisPlayer->id) + " " + std::to_string(thisPlayer->getPosition().x) + " " + std::to_string(thisPlayer->getPosition().y);
@@ -300,6 +277,68 @@ int main(){
             newPlayerSocket.recv(rep, zmq::recv_flags::none);            
         }
 
+            
+        std::string translationString;
+
+        for(SideBoundry* sb : boundaries){
+            sb->isCollidedWith = false;
+            if(thisPlayer->getGlobalBounds().intersects(sb->getGlobalBounds())){
+
+                thisPlayer->resolveColision(sb);
+                //LATERAL SHIFT
+
+                if(sb->side == RIGHT_SIDE){
+                    //shift everything left
+                    translationString = TRANSFORM_LEFT + " " + std::to_string(thisPlayer->id) + " " + std::to_string(frameDelta);
+                }
+                else{
+                    //shift everything right
+                    translationString = TRANSFORM_RIGHT + " " + std::to_string(thisPlayer->id) + " " + std::to_string(frameDelta);
+                }
+                sb->isCollidedWith = true;
+                std::cout << translationString << std::endl;
+
+            }
+        }
+
+        std::cout << "RIGHT: " << std::to_string(boundaries[0]->isCollidedWith) << std::endl;
+        std::cout << "LEFT: " << std::to_string(boundaries[1]->isCollidedWith) << std::endl;
+
+        if(boundaries[0]->isCollidedWith || boundaries[1]->isCollidedWith){
+            bool otherCollidedWith = false;
+            for(Player * pl : players){
+                if(pl->id != thisId){
+                    if(boundaries[0]->isCollidedWith){
+                        //check the other one
+                        std::cout << std::to_string(pl->getPosition().x) << " == " << std::to_string(boundaries[1]->getPosition().x) << std::endl;
+                        if(pl->getPosition().x == boundaries[1]->getPosition().x || pl->getGlobalBounds().intersects(boundaries[1]->getGlobalBounds())){
+                            
+                            otherCollidedWith = true;
+                            break;
+                        }
+                    }
+                    else{
+                        std::cout << std::to_string(pl->getPosition().x + pl->getSize().x) << " == " << std::to_string(boundaries[0]->getPosition().x) << std::endl;
+                        if(pl->getPosition().x + pl->getSize().x == boundaries[0]->getPosition().x || pl->getGlobalBounds().intersects(boundaries[0]->getGlobalBounds())){
+                            otherCollidedWith = true;
+                            break;
+                        }   
+                    }
+                }
+            }
+
+            if(!otherCollidedWith){
+                zmq::message_t translateMessage(translationString.length());
+                memcpy(translateMessage.data(), translationString.c_str(), translationString.length());
+                newPlayerSocket.send(translateMessage, zmq::send_flags::none);
+                zmq::message_t rep(0);
+                newPlayerSocket.recv(rep, zmq::recv_flags::none); 
+            }
+        }
+
+
+
+
         {
             std::lock_guard<std::mutex> lock(platformMutex);
             for(auto const& obj : gameObjects){
@@ -307,9 +346,11 @@ int main(){
             }
         }
 
+
+
         //DRAW BOUNDARIES (REMOVE LATER)
-        window.draw(boundaries[0]);
-        window.draw(boundaries[1]);
+        window.draw(*boundaries[0]);
+        window.draw(*boundaries[1]);
 
         
         window.display();
