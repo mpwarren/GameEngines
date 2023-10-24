@@ -40,8 +40,6 @@ std::string MovingPlatform::toString(){
 }
 
 void MovingPlatform::translate(std::string dir, int64_t frameDelta){
-    std::cout << "FROM: " << std::to_string(getPosition().x) << ", " << std::to_string(getPosition().y) << std::endl;
-    std::cout << "USING FD: " << std::to_string(frameDelta) << std::endl;
     float distMoved = velocity * frameDelta;
     if(dir == TRANSFORM_LEFT){
         startPoint.x = startPoint.x - distMoved;
@@ -53,6 +51,5 @@ void MovingPlatform::translate(std::string dir, int64_t frameDelta){
         endPoint.x = endPoint.x + distMoved;
         setPosition(getPosition().x + distMoved , getPosition().y);
     }
-    std::cout << "TO: " << std::to_string(getPosition().x) << ", " << std::to_string(getPosition().y) << std::endl;
 
 }

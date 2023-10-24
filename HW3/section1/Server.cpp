@@ -104,6 +104,10 @@ int main(){
     gameObjects[platform.id] = &platform;
     id++;
 
+    Platform platform1(id, sf::Vector2f(50, groundHeight), sf::Vector2f(30, 300), "");
+    gameObjects[platform1.id] = &platform1;
+    id++;
+
     //Set Spawn Point
     SpawnPoint sp(sf::Vector2f(70, SCENE_HEIGHT - (50 + groundHeight)));
 

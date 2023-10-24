@@ -19,7 +19,6 @@ void Player::movePlayer(sf::Keyboard::Key key, int64_t frameDelta){
     else if(key == sf::Keyboard::D){
         xDir = 1 * velocity * frameDelta;
     }
-    std::cout << std::to_string(xDir) << std::endl;
 
     move(xDir, yDir);
 
@@ -27,7 +26,6 @@ void Player::movePlayer(sf::Keyboard::Key key, int64_t frameDelta){
 
 void Player::gravity(int64_t frameDelta, bool groundLevel){
     int velocity = frameDelta;
-    std::cout << std::to_string(groundLevel) << std::endl;
     if(!jumping && !groundLevel){
         move(0, velocity);
     }

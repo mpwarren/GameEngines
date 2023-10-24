@@ -158,7 +158,7 @@ int main(){
     std::vector<SideBoundry> boundaries;
     int distanceFromEdge = 50;
     boundaries.push_back(SideBoundry(100, sf::Vector2f(SCENE_WIDTH - distanceFromEdge , 0), RIGHT_SIDE));
-    //boundaries.push_back(SideBoundry(101, sf::Vector2f(distanceFromEdge , 0), LEFT_SIDE));
+    boundaries.push_back(SideBoundry(101, sf::Vector2f(distanceFromEdge , 0), LEFT_SIDE));
 
 
     std::thread platformThread(platformMovement, &gameObjects);
@@ -201,7 +201,7 @@ int main(){
             }
         }
 
-        zmq::message_t pauseListenerMessage(1);
+        zmq::message_t pauseListenerMessage;
         pauseListener.recv(pauseListenerMessage, zmq::recv_flags::dontwait);
         if(pauseListenerMessage.to_string() == PAUSING_SIGN){
             if(gameTime.isPaused()){
@@ -211,6 +211,14 @@ int main(){
             else{
                 gameTime.pause(lastTime);
             }    
+        }
+        else if(pauseListenerMessage.to_string().length() > 0){
+            std::vector<std::string> words = parseMessage(pauseListenerMessage.to_string());
+            for(auto const& obj : gameObjects){
+                if(obj.second->objId != MOVING_PLATFORM_ID && obj.second->id != stoi(words[1]) && obj.second->id != 1){
+                    obj.second->translate(words[0], stoi(words[2]));
+                }
+            }
         }        
 
         window.clear(sf::Color::Black);
@@ -237,7 +245,6 @@ int main(){
 
         //gravity
         float ground = 585;
-        std::cout << std::to_string(thisPlayer->getPosition().y) << std::endl;
         bool playerColliding = (thisPlayer->getPosition().y + 50 >= ground);
         thisPlayer->gravity(frameDelta, playerColliding);
         moved = true;
@@ -302,7 +309,7 @@ int main(){
 
         //DRAW BOUNDARIES (REMOVE LATER)
         window.draw(boundaries[0]);
-        //window.draw(boundaries[1]);
+        window.draw(boundaries[1]);
 
         
         window.display();

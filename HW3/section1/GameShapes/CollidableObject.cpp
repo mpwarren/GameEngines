@@ -70,10 +70,12 @@ std::string CollidableObject::toString(){
 }
 
 void CollidableObject::translate(std::string dir, int64_t frameDelta){
+    float velocity = 0.5;
+    float distMoved = velocity * frameDelta;
     if(dir == TRANSFORM_LEFT){
-        move(getPosition().x - frameDelta ,0);
+        setPosition(getPosition().x - distMoved , getPosition().y);
     }
     else{
-        move(getPosition().x + frameDelta ,0);
+        setPosition(getPosition().x + distMoved , getPosition().y);
     }
 }
