@@ -149,6 +149,7 @@ int main(){
     }
 
     Player * thisPlayer = (Player*)gameObjects[thisId];
+    thisPlayer->setFillColor(sf::Color(100, 100, 100));
 
     for(int i = 1; i <= 3; i++){
         std::cout << gameObjects[i]->toString() << std::endl;
@@ -312,7 +313,7 @@ int main(){
                         //check the other one
                         std::cout << std::to_string(pl->getPosition().x) << " == " << std::to_string(boundaries[1]->getPosition().x) << std::endl;
                         if(pl->getPosition().x == boundaries[1]->getPosition().x || pl->getGlobalBounds().intersects(boundaries[1]->getGlobalBounds())){
-                            
+                            std::cout << "OTHER PLAYER ON LEFT" << std::endl;
                             otherCollidedWith = true;
                             break;
                         }
@@ -320,6 +321,7 @@ int main(){
                     else{
                         std::cout << std::to_string(pl->getPosition().x + pl->getSize().x) << " == " << std::to_string(boundaries[0]->getPosition().x) << std::endl;
                         if(pl->getPosition().x + pl->getSize().x == boundaries[0]->getPosition().x || pl->getGlobalBounds().intersects(boundaries[0]->getGlobalBounds())){
+                            std::cout << "OTHER PLAYER ON RIGHT" << std::endl;
                             otherCollidedWith = true;
                             break;
                         }   
