@@ -47,7 +47,6 @@ void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gam
 
         if(pauseListenerMessage.to_string().length() > 0){
             std::vector<std::string> words = parseMessage(pauseListenerMessage.to_string());
-            std::cout << "THREAD MESSAGE: " << pauseListenerMessage.to_string() << std::endl;
             if(words[0] == PAUSING_SIGN){
                 if(platformTime->isPaused()){
                     int64_t elapsedTime = platformTime->unpause();

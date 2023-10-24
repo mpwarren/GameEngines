@@ -40,7 +40,7 @@ void platformMovement(std::map<int, CollidableObject*>* gameObjects){
 }
 
 
-void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, int thisId){
+void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, std::vector<Player*>* players, int thisId){
     zmq::context_t context (1);
     zmq::socket_t recievePlayerPositionSocket (context, zmq::socket_type::sub);
     recievePlayerPositionSocket.connect ("tcp://localhost:5557");
@@ -57,7 +57,9 @@ void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, int th
             int id = stoi(words[1]);
             {
                 std::lock_guard<std::mutex> lock(platformMutex);
-                gameObjects->insert(std::pair<int, CollidableObject*>(id, new Player(id, sf::Vector2f(stof(words[2]), stof(words[3])), sf::Vector2f(stof(words[4]), stof(words[5])), words[6])));
+                Player* newPlayer = new Player(id, sf::Vector2f(stof(words[2]), stof(words[3])), sf::Vector2f(stof(words[4]), stof(words[5])), words[6]);
+                gameObjects->insert(std::pair<int, CollidableObject*>(id, newPlayer));
+                players->push_back(newPlayer);
             }
         }
         else if(words[0] == DELETE_SIGN){
@@ -167,7 +169,7 @@ int main(){
 
 
     std::thread platformThread(platformMovement, &gameObjects);
-    std::thread playerThread(playerPositionUpdates, &gameObjects, thisId);
+    std::thread playerThread(playerPositionUpdates, &gameObjects, &players, thisId);
 
 
     Timeline anchorTimeline;
@@ -286,6 +288,7 @@ int main(){
             if(thisPlayer->getGlobalBounds().intersects(sb->getGlobalBounds())){
 
                 thisPlayer->resolveColision(sb);
+                std::cout << "NEW POSITION FROM COLLIDING WITH SIDE: " << std::to_string(thisPlayer->getPosition().x) << ", " << std::to_string(thisPlayer->getPosition().y) << std::endl;
                 //LATERAL SHIFT
 
                 if(sb->side == RIGHT_SIDE){
@@ -297,13 +300,12 @@ int main(){
                     translationString = TRANSFORM_RIGHT + " " + std::to_string(thisPlayer->id) + " " + std::to_string(frameDelta);
                 }
                 sb->isCollidedWith = true;
-                std::cout << translationString << std::endl;
 
             }
         }
 
-        std::cout << "RIGHT: " << std::to_string(boundaries[0]->isCollidedWith) << std::endl;
-        std::cout << "LEFT: " << std::to_string(boundaries[1]->isCollidedWith) << std::endl;
+        // std::cout << "RIGHT: " << std::to_string(boundaries[0]->isCollidedWith) << std::endl;
+        // std::cout << "LEFT: " << std::to_string(boundaries[1]->isCollidedWith) << std::endl;
 
         if(boundaries[0]->isCollidedWith || boundaries[1]->isCollidedWith){
             bool otherCollidedWith = false;
@@ -311,16 +313,18 @@ int main(){
                 if(pl->id != thisId){
                     if(boundaries[0]->isCollidedWith){
                         //check the other one
-                        std::cout << std::to_string(pl->getPosition().x) << " == " << std::to_string(boundaries[1]->getPosition().x) << std::endl;
-                        if(pl->getPosition().x == boundaries[1]->getPosition().x || pl->getGlobalBounds().intersects(boundaries[1]->getGlobalBounds())){
+                        std::cout << std::to_string(pl->getPosition().x) << " == " << std::to_string(boundaries[1]->getPosition().x);
+                        std::cout <<" || " << std::to_string(pl->getGlobalBounds().intersects(boundaries[0]->getGlobalBounds())) << std::endl;
+                        if(pl->getPosition().x <= boundaries[1]->getPosition().x + 1){
                             std::cout << "OTHER PLAYER ON LEFT" << std::endl;
                             otherCollidedWith = true;
                             break;
                         }
                     }
                     else{
-                        std::cout << std::to_string(pl->getPosition().x + pl->getSize().x) << " == " << std::to_string(boundaries[0]->getPosition().x) << std::endl;
-                        if(pl->getPosition().x + pl->getSize().x == boundaries[0]->getPosition().x || pl->getGlobalBounds().intersects(boundaries[0]->getGlobalBounds())){
+                        std::cout << std::to_string(pl->getPosition().x + pl->getSize().x) << " == " << std::to_string(boundaries[0]->getPosition().x);
+                        std::cout <<" || " << std::to_string(pl->getGlobalBounds().intersects(boundaries[0]->getGlobalBounds())) << std::endl;
+                        if(pl->getPosition().x + pl->getSize().x >= boundaries[0]->getPosition().x){
                             std::cout << "OTHER PLAYER ON RIGHT" << std::endl;
                             otherCollidedWith = true;
                             break;
@@ -330,6 +334,7 @@ int main(){
             }
 
             if(!otherCollidedWith){
+                std::cout << "SENDING: " << translationString << std::endl;
                 zmq::message_t translateMessage(translationString.length());
                 memcpy(translateMessage.data(), translationString.c_str(), translationString.length());
                 newPlayerSocket.send(translateMessage, zmq::send_flags::none);
