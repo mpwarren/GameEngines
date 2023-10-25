@@ -7,6 +7,7 @@
 #include <thread>
 #include <cmath>
 #include "SpawnPoint.h"
+#include "GameShapes/DeathZone.h"
 
 
 std::vector<std::string> parseMessage(std::string strToParse){
@@ -116,8 +117,11 @@ int main(){
     id++;
 
     MovingPlatform vertPlatform(id, sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), "", Direction::vertical, 0.5, 400);
-    vertPlatform.setFillColor(sf::Color(150, 50, 250));
     gameObjects[vertPlatform.id] = &vertPlatform;
+    id++;
+
+    DeathZone spike(id, sf::Vector2f(50,20), sf::Vector2f(200, SCENE_HEIGHT - groundHeight - 20), "");
+    gameObjects[spike.id] = &spike;
     id++;
 
     //Create Timelines
@@ -147,7 +151,6 @@ int main(){
             memcpy(newResponse.data(), std::to_string(id).c_str(), std::to_string(id).length());
             playerConnectionSocket.send(newResponse, zmq::send_flags::sndmore);
 
-            std::cout<< "adding new player " << std::endl;
             //add new player to list of objects
             gameObjects[id] = new Player(id, sf::Vector2f(50, 50), sp.getSpawnPoint(), "");
             std::cout<< "new player added " << std::endl;

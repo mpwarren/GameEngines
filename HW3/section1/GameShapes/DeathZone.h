@@ -4,7 +4,8 @@
 #include "CollidableObject.h"
 
 class DeathZone : public CollidableObject{
-    DeathZone(int id, sf::Vector2f size, sf::Vector2f position, std::string texturePath);
+    public:
+        DeathZone(int id, sf::Vector2f size, sf::Vector2f position, std::string texturePath);
 };
 
 #endif

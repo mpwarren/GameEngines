@@ -3,14 +3,17 @@ SHAPESDIR = GameShapes/
 
 all: server client
 
-server: Server.o Constants.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o 
-	$(CC) Server.o Constants.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o server -lsfml-graphics -lsfml-system -pthread -lzmq
+server: Server.o Constants.o DeathZone.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o 
+	$(CC) Server.o Constants.o DeathZone.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o server -lsfml-graphics -lsfml-system -pthread -lzmq
 
-client: Client.o Constants.o SideBoundry.o SpawnPoint.o CollidableObject.o MovingPlatform.o Platform.o Player.o
-	$(CC) Client.o Constants.o SideBoundry.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o client -lsfml-graphics -lsfml-window -lsfml-system -pthread -lzmq
+client: Client.o Constants.o DeathZone.o SideBoundry.o SpawnPoint.o CollidableObject.o MovingPlatform.o Platform.o Player.o
+	$(CC) Client.o Constants.o DeathZone.o SideBoundry.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o client -lsfml-graphics -lsfml-window -lsfml-system -pthread -lzmq
 
 Constants.o: Constants.h Constants.cpp
 	$(CC) -c Constants.cpp
+
+DeathZone.o: $(SHAPESDIR)DeathZone.h $(SHAPESDIR)DeathZone.cpp
+	$(CC) -c $(SHAPESDIR)DeathZone.cpp
 
 SpawnPoint.o: SpawnPoint.h SpawnPoint.cpp
 	$(CC) -c SpawnPoint.cpp
