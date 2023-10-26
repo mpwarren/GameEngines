@@ -14,6 +14,7 @@ extern const std::string NEW_PLAYER_SIGN;
 extern const std::string PAUSING_SIGN;
 extern const std::string TRANSFORM_LEFT;
 extern const std::string TRANSFORM_RIGHT;
+extern const std::string RESET_SCENE;
 
 extern const std::string RIGHT_SIDE;
 extern const std::string LEFT_SIDE;

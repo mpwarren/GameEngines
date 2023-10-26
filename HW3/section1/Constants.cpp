@@ -11,6 +11,7 @@ const std::string NEW_PLAYER_SIGN = "NP";
 const std::string PAUSING_SIGN = "P";
 const std::string TRANSFORM_LEFT = "TL";
 const std::string TRANSFORM_RIGHT = "TR";
+const std::string RESET_SCENE = "RS";
 
 const std::string RIGHT_SIDE = "R";
 const std::string LEFT_SIDE = "L";

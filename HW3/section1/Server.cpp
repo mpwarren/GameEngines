@@ -103,6 +103,11 @@ void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gam
                     platformTime->pause(lastTime);
                 }    
             }
+            else if(words[0] == RESET_SCENE){
+                for(MovingPlatform * mvPlt : movingPlatforms){
+                    mvPlt->reset();
+                }
+            }
             else if(words[0] == TRANSFORM_LEFT || words[0] == TRANSFORM_RIGHT){
                 for(auto const& obj : *gameObjects){
                     if(obj.first != 1 and obj.first != stoi(words[1])){
@@ -146,27 +151,27 @@ int main(){
     std::map<int, CollidableObject*> gameObjects;
 
     int groundHeight = 15;
-    Platform platform(id, sf::Vector2f(SCENE_WIDTH, groundHeight), sf::Vector2f(0,SCENE_HEIGHT - groundHeight), "");
+    Platform platform(id, sf::Vector2f(SCENE_WIDTH, groundHeight), sf::Vector2f(0,SCENE_HEIGHT - groundHeight), sf::Vector2f(0,SCENE_HEIGHT - groundHeight), "");
     gameObjects[platform.id] = &platform;
     id++;
 
-    Platform platform1(id, sf::Vector2f(50, groundHeight), sf::Vector2f(30, 300), "");
+    Platform platform1(id, sf::Vector2f(50, groundHeight), sf::Vector2f(30, 300), sf::Vector2f(30, 300), "");
     gameObjects[platform1.id] = &platform1;
     id++;
 
     //Set Spawn Point
     SpawnPoint sp(sf::Vector2f(70, SCENE_HEIGHT - (50 + groundHeight)));
 
-    MovingPlatform horzPlatform(id, sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), "", Direction::horizontal, 0.5, 200);
+    MovingPlatform horzPlatform(id, sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), sf::Vector2f(400, 300), "", Direction::horizontal, 0.5, 200);
     horzPlatform.setFillColor(sf::Color(150, 50, 250));
     gameObjects[horzPlatform.id] = &horzPlatform;
     id++;
 
-    MovingPlatform vertPlatform(id, sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), "", Direction::vertical, 0.5, 400);
+    MovingPlatform vertPlatform(id, sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), sf::Vector2f(200, 100), "", Direction::vertical, 0.5, 400);
     gameObjects[vertPlatform.id] = &vertPlatform;
     id++;
 
-    DeathZone spike(id, sf::Vector2f(50,20), sf::Vector2f(200, SCENE_HEIGHT - groundHeight - 20), "");
+    DeathZone spike(id, sf::Vector2f(50,20), sf::Vector2f(200, SCENE_HEIGHT - groundHeight - 20), sf::Vector2f(200, SCENE_HEIGHT - groundHeight - 20), "");
     gameObjects[spike.id] = &spike;
     id++;
 
@@ -200,7 +205,7 @@ int main(){
             playerConnectionSocket.send(newResponse, zmq::send_flags::sndmore);
 
             //add new player to list of objects
-            gameObjects[id] = new Player(id, sf::Vector2f(50, 50), sp.getSpawnPoint(), "");
+            gameObjects[id] = new Player(id, sf::Vector2f(50, 50), sp.getSpawnPoint(), sp.getSpawnPoint(), "");
             std::cout<< "new player added " << std::endl;
 
             //send platform and other collidable objects
@@ -237,7 +242,7 @@ int main(){
                 //send out deleted message to all other clients
                 playerPositionPublisher.send(playerMessage, zmq::send_flags::none);
             }
-            else if(words[0] == PAUSING_SIGN || words[0] == TRANSFORM_RIGHT || words[0] == TRANSFORM_LEFT){
+            else if(words[0] == PAUSING_SIGN || words[0] == TRANSFORM_RIGHT || words[0] == TRANSFORM_LEFT || words[0] == RESET_SCENE){
                 pausePublisher.send(playerMessage, zmq::send_flags::none);
             }
             else{

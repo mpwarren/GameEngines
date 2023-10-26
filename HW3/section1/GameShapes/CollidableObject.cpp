@@ -7,8 +7,9 @@ CollidableObject::CollidableObject() : sf::RectangleShape(sf::Vector2f(0,0)), id
     applyTexture(classTexturePath);
 }
 
-CollidableObject::CollidableObject(int passedId, sf::Vector2f size, sf::Vector2f position, std::string texturePath) : sf::RectangleShape(size), id{passedId} {
+CollidableObject::CollidableObject(int passedId, sf::Vector2f size, sf::Vector2f position, sf::Vector2f startingPosition, std::string texturePath) : sf::RectangleShape(size), id{passedId} {
     setPosition(position);
+    startingPoint = startingPosition;
     classTexturePath = texturePath == "" ? "n/a" : texturePath;
     applyTexture(classTexturePath);
     objId = "CO";
@@ -66,7 +67,8 @@ void CollidableObject::resolveColision(CollidableObject* other){
 
 std::string CollidableObject::toString(){
     return objId + " " + std::to_string(id) + " " + std::to_string(getSize().x) + " " + std::to_string(getSize().y)
-        + " " + std::to_string(getPosition().x) + " " + std::to_string(getPosition().y) + " " + classTexturePath;
+        + " " + std::to_string(getPosition().x) + " " + std::to_string(getPosition().y) + " " + std::to_string(startingPoint.x) + 
+        " " + std::to_string(startingPoint.y) + " " + classTexturePath;
 }
 
 void CollidableObject::translate(std::string dir, int64_t frameDelta){
@@ -78,4 +80,8 @@ void CollidableObject::translate(std::string dir, int64_t frameDelta){
     else{
         setPosition(getPosition().x + distMoved , getPosition().y);
     }
+}
+
+void CollidableObject::reset(){
+    setPosition(startingPoint);
 }

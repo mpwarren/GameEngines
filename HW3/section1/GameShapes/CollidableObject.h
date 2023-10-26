@@ -14,9 +14,11 @@ class CollidableObject : public sf::RectangleShape{
 
         std::string classTexturePath;
 
+        sf::Vector2f startingPoint;
+
         CollidableObject();
 
-        CollidableObject(int id, sf::Vector2f size, sf::Vector2f position, std::string texturePath);
+        CollidableObject(int id, sf::Vector2f size, sf::Vector2f position, sf::Vector2f startingPosition, std::string texturePath);
 
         void resolveColision(CollidableObject* other);
 
@@ -25,6 +27,8 @@ class CollidableObject : public sf::RectangleShape{
         virtual std::string toString();
 
         virtual void translate(std::string dir, int64_t frameDelta);
+
+        virtual void reset();
     
     private:
         sf::Texture texture;

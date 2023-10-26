@@ -13,10 +13,12 @@ class MovingPlatform : public Platform{
     public:
         Direction platformDirection;
         MovingPlatform();
-        MovingPlatform(int id, sf::Vector2f size, sf::Vector2f position, std::string texturePath, Direction dir, float v, int dist);
+        MovingPlatform(int id, sf::Vector2f size, sf::Vector2f position, sf::Vector2f startingPosition, std::string texturePath, Direction dir, float v, int dist);
         void movePosition(int64_t frameDelta);
         std::string toString() override;
         void translate(std::string dir, int64_t frameDelta) override;
+        void reset() override;
+        void setEndPoint();
 
     private:
         float velocity;

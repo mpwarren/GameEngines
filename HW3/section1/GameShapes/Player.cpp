@@ -1,8 +1,8 @@
 #include "Player.h"
 #include <iostream>
 
-Player::Player(int id, sf::Vector2f size, sf::Vector2f startPosition, std::string texturePath) : CollidableObject(id, size, startPosition, texturePath){
-    setPosition(startPosition);
+Player::Player(int id, sf::Vector2f size, sf::Vector2f position, sf::Vector2f startingPosition, std::string texturePath) : CollidableObject(id, size, position, startingPosition, texturePath){
+    setPosition(position);
     objId = PLAYER_ID;
     jumpHeight = 200;
 }

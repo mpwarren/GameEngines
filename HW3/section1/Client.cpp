@@ -82,7 +82,7 @@ void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, std::v
             int id = stoi(words[1]);
             {
                 std::lock_guard<std::mutex> lock(platformMutex);
-                Player* newPlayer = new Player(id, sf::Vector2f(stof(words[2]), stof(words[3])), sf::Vector2f(stof(words[4]), stof(words[5])), words[6]);
+                Player* newPlayer = new Player(id, sf::Vector2f(stof(words[2]), stof(words[3])), sf::Vector2f(stof(words[4]), stof(words[5])), sf::Vector2f(stof(words[6]), stof(words[7])), words[8]);
                 gameObjects->insert(std::pair<int, CollidableObject*>(id, newPlayer));
                 players->push_back(newPlayer);
             }
@@ -150,19 +150,19 @@ int main(){
         std::cout << "Message: " << objectMessage.to_string() << std::endl;
         if(params[0] == PLATFORM_ID){
             int id = stoi(params[1]);
-            Platform* pt = new Platform(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), params[6]);
+            Platform* pt = new Platform(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
             gameObjects[id] = pt;
             collidableObjects.push_back(pt);
         }
         else if(params[0] == MOVING_PLATFORM_ID){
             int id = stoi(params[1]);
-            MovingPlatform* mp = new MovingPlatform(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), params[6], (Direction)stoi(params[7]), stof(params[8]), stoi(params[9]));
+            MovingPlatform* mp = new MovingPlatform(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8], (Direction)stoi(params[9]), stof(params[10]), stoi(params[11]));
             gameObjects[id] = mp;
             collidableObjects.push_back(mp);
         }
         else if(params[0] == PLAYER_ID){
             int id = stoi(params[1]);
-            gameObjects[id] = new Player(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), params[6]);
+            gameObjects[id] = new Player(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
             players.push_back((Player*)gameObjects[id]);
         }
         else if(params[0] == SPAWN_POINT_ID){
@@ -170,7 +170,7 @@ int main(){
         }
         else if(params[0] == DEATH_ZONE_ID){
             int id = stoi(params[1]);
-            DeathZone* dz = new DeathZone(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), params[6]);
+            DeathZone* dz = new DeathZone(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
             gameObjects[id] = dz;
             deathZones.push_back(dz);
             std::cout << "ADDING DZ" << std::endl;
@@ -191,9 +191,9 @@ int main(){
     //generate side boundry
     std::vector<SideBoundry*> boundaries;
     int distanceFromEdge = 50;
-    SideBoundry* boundry1 = new SideBoundry(100, sf::Vector2f(SCENE_WIDTH - distanceFromEdge , 0), RIGHT_SIDE);
+    SideBoundry* boundry1 = new SideBoundry(100, sf::Vector2f(SCENE_WIDTH - distanceFromEdge , 0), sf::Vector2f(SCENE_WIDTH - distanceFromEdge , 0), RIGHT_SIDE);
     boundaries.push_back(boundry1);
-    SideBoundry* boundry2 = new SideBoundry(101, sf::Vector2f(distanceFromEdge , 0), LEFT_SIDE);
+    SideBoundry* boundry2 = new SideBoundry(101, sf::Vector2f(distanceFromEdge, 0), sf::Vector2f(distanceFromEdge, 0), LEFT_SIDE);
     boundaries.push_back(boundry2);
 
 
@@ -249,6 +249,11 @@ int main(){
                 gameTime.pause(lastTime);
             }    
         }
+        else if(pauseListenerMessage.to_string() == RESET_SCENE){
+            for(auto const& obj : gameObjects){
+                obj.second->setPosition(obj.second->startingPoint);
+            }
+        }
         else if(pauseListenerMessage.to_string().length() > 0){
             std::vector<std::string> words = parseMessage(pauseListenerMessage.to_string());
             for(auto const& obj : gameObjects){
@@ -282,7 +287,11 @@ int main(){
         for(DeathZone* dz : deathZones){
             if(thisPlayer->getGlobalBounds().intersects(dz->getGlobalBounds())){
                 died = true;
-                thisPlayer->setPosition(sp.getSpawnPoint());
+                zmq::message_t resetMessage(2);
+                memcpy(resetMessage.data(), RESET_SCENE.c_str(), 2);
+                newPlayerSocket.send(resetMessage, zmq::send_flags::none);
+                zmq::message_t rep(0);
+                newPlayerSocket.recv(rep, zmq::recv_flags::none); 
                 break;
             }
         }
