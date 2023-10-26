@@ -24,6 +24,9 @@ void heartbeat(){
     zmq::socket_t heartbeatSocket(context, zmq::socket_type::rep);
     heartbeatSocket.bind("tcp://*:5559");
 
+    zmq::socket_t deletePlayerSocket (context, zmq::socket_type::req);
+    deletePlayerSocket.connect ("tcp://localhost:5556");
+
     std::map<int, int64_t> lastBeatTime;
 
     Timeline beatTimeline;
@@ -32,24 +35,27 @@ void heartbeat(){
         zmq::message_t beatMessage;
         heartbeatSocket.recv(beatMessage, zmq::recv_flags::dontwait);
         if(beatMessage.to_string().length() > 0){
-            std::cout << "REVIECED: " << beatMessage.to_string() << std::endl;
             int id = stoi(beatMessage.to_string());
-            if(lastBeatTime.count(id) == 1){
-                //the id does exist in the map
-                std::cout << "OLD BEAT: " << std::to_string(lastBeatTime[id]) << std::endl;
-                std::cout << "CURRENT TIME: " << std::to_string(beatTimeline.getTime()) << std::endl;
-                lastBeatTime[id] = beatTimeline.getTime() - lastBeatTime[id];
-            }
-            else{
-                lastBeatTime[id] = 0;
-            }
+            lastBeatTime[id] = beatTimeline.getTime();
             std::cout << "BEAT: " << beatMessage.to_string() << ": " << std::to_string(lastBeatTime[id]) << std::endl;
             heartbeatSocket.send(zmq::message_t(), zmq::send_flags::none);
         }
 
         for(auto const& obj : lastBeatTime){
-            if(obj.second > 5){
-                //std::cout << "REMOVE: " << std::to_string(obj.first) << std::endl;
+            int64_t currentTime = beatTimeline.getTime();
+            if(currentTime - obj.second > 5000){
+                //send message to delete player on all clients
+                std::string deleteStr = DELETE_SIGN + " " + std::to_string(obj.first);
+                zmq::message_t deletePlayerMessage(deleteStr.length());
+                memcpy(deletePlayerMessage.data(), deleteStr.c_str(), deleteStr.length());
+                deletePlayerSocket.send(deletePlayerMessage, zmq::send_flags::none);
+                zmq::message_t recvMsg(0);
+                deletePlayerSocket.recv(recvMsg, zmq::recv_flags::none);
+
+                //erase from this map
+                lastBeatTime.erase(obj.first);
+
+                break;
             }
         }
     }
