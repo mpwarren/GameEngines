@@ -141,6 +141,8 @@ int main(){
     int thisId = stoi(idMessage.to_string());
     std::cout << "ID: " << idMessage.to_string() << std::endl;
 
+    int numPlatforms = 0;
+    std::vector<sf::Color> platformColors{ sf::Color(252, 186, 3), sf::Color(53, 252, 3), sf::Color(3, 78, 252)};
     int moreToRead = 1;
     while(moreToRead != 0){
         zmq::message_t objectMessage;
@@ -151,6 +153,8 @@ int main(){
         if(params[0] == PLATFORM_ID){
             int id = stoi(params[1]);
             Platform* pt = new Platform(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
+            pt->setFillColor(platformColors[numPlatforms % platformColors.size()]);
+            numPlatforms++;
             gameObjects[id] = pt;
             collidableObjects.push_back(pt);
         }
@@ -171,6 +175,7 @@ int main(){
         else if(params[0] == DEATH_ZONE_ID){
             int id = stoi(params[1]);
             DeathZone* dz = new DeathZone(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
+            dz->setFillColor(sf::Color(255, 0, 0));
             gameObjects[id] = dz;
             deathZones.push_back(dz);
             std::cout << "ADDING DZ" << std::endl;
@@ -191,9 +196,9 @@ int main(){
     //generate side boundry
     std::vector<SideBoundry*> boundaries;
     int distanceFromEdge = 50;
-    SideBoundry* boundry1 = new SideBoundry(100, sf::Vector2f(SCENE_WIDTH - distanceFromEdge , 0), sf::Vector2f(SCENE_WIDTH - distanceFromEdge , 0), RIGHT_SIDE);
+    SideBoundry* boundry1 = new SideBoundry(100, sf::Vector2f(SCENE_WIDTH - distanceFromEdge , -50), sf::Vector2f(SCENE_WIDTH - distanceFromEdge , -50), RIGHT_SIDE);
     boundaries.push_back(boundry1);
-    SideBoundry* boundry2 = new SideBoundry(101, sf::Vector2f(distanceFromEdge, 0), sf::Vector2f(distanceFromEdge, 0), LEFT_SIDE);
+    SideBoundry* boundry2 = new SideBoundry(101, sf::Vector2f(distanceFromEdge, -50), sf::Vector2f(distanceFromEdge, -50), LEFT_SIDE);
     boundaries.push_back(boundry2);
 
 

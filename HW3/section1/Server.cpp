@@ -155,14 +155,22 @@ int main(){
     gameObjects[platform.id] = &platform;
     id++;
 
-    Platform platform1(id, sf::Vector2f(50, groundHeight), sf::Vector2f(30, 300), sf::Vector2f(30, 300), "");
+    Platform platform1(id, sf::Vector2f(200, groundHeight), sf::Vector2f(-100, 400), sf::Vector2f(-100, 400), "");
     gameObjects[platform1.id] = &platform1;
     id++;
 
-    //Set Spawn Point
-    SpawnPoint sp(sf::Vector2f(70, SCENE_HEIGHT - (50 + groundHeight)));
+    Platform platform2(id, sf::Vector2f(200, groundHeight), sf::Vector2f(750, 550), sf::Vector2f(750, 550), "");
+    gameObjects[platform2.id] = &platform2;
+    id++;
 
-    MovingPlatform horzPlatform(id, sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 300), sf::Vector2f(400, 300), "", Direction::horizontal, 0.5, 200);
+    Platform platform3(id, sf::Vector2f(700, groundHeight), sf::Vector2f(350, 200), sf::Vector2f(350, 200), "");
+    gameObjects[platform3.id] = &platform3;
+    id++;
+
+    //Set Spawn Point
+    SpawnPoint sp(sf::Vector2f(160, SCENE_HEIGHT - (50 + groundHeight)));
+
+    MovingPlatform horzPlatform(id, sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 500), sf::Vector2f(400, 500), "", Direction::horizontal, 0.5, 200);
     horzPlatform.setFillColor(sf::Color(150, 50, 250));
     gameObjects[horzPlatform.id] = &horzPlatform;
     id++;
@@ -171,7 +179,7 @@ int main(){
     gameObjects[vertPlatform.id] = &vertPlatform;
     id++;
 
-    DeathZone spike(id, sf::Vector2f(50,20), sf::Vector2f(200, SCENE_HEIGHT - groundHeight - 20), sf::Vector2f(200, SCENE_HEIGHT - groundHeight - 20), "");
+    DeathZone spike(id, sf::Vector2f(50,20), sf::Vector2f(600, SCENE_HEIGHT - groundHeight - 20), sf::Vector2f(600, SCENE_HEIGHT - groundHeight - 20), "");
     gameObjects[spike.id] = &spike;
     id++;
 
