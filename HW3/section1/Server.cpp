@@ -37,7 +37,6 @@ void heartbeat(){
         if(beatMessage.to_string().length() > 0){
             int id = stoi(beatMessage.to_string());
             lastBeatTime[id] = beatTimeline.getTime();
-            std::cout << "BEAT: " << beatMessage.to_string() << ": " << std::to_string(lastBeatTime[id]) << std::endl;
             heartbeatSocket.send(zmq::message_t(), zmq::send_flags::none);
         }
 

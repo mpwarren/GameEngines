@@ -28,15 +28,12 @@ void heartbeat(int id){
     zmq::socket_t heartbeatSocket (context, zmq::socket_type::req);
     heartbeatSocket.connect ("tcp://localhost:5559");
     std::string idString = std::to_string(id);
-    std::cout << "ID STRING: " << idString << std::endl;
     int strLen = idString.length();
 
 
     while(true){
         zmq::message_t idMessage(strLen);
         memcpy(idMessage.data(), idString.c_str(), strLen);
-
-        std::cout << "SENDING: " << idMessage.to_string() << std::endl;
 
         heartbeatSocket.send(idMessage, zmq::send_flags::none);
         zmq::message_t recvMsg(0);
