@@ -17,6 +17,47 @@ std::vector<std::string> parseMessage(std::string strToParse){
     return words;
 }
 
+void heartbeat(){
+    //Initalize socket
+    zmq::context_t context(1);
+
+    zmq::socket_t heartbeatSocket(context, zmq::socket_type::rep);
+    heartbeatSocket.bind("tcp://*:5559");
+
+    std::map<int, int64_t> lastBeatTime;
+
+    Timeline beatTimeline;
+
+    while(true){
+        zmq::message_t beatMessage;
+        heartbeatSocket.recv(beatMessage, zmq::recv_flags::dontwait);
+        if(beatMessage.to_string().length() > 0){
+            std::cout << "REVIECED: " << beatMessage.to_string() << std::endl;
+            int id = stoi(beatMessage.to_string());
+            if(lastBeatTime.count(id) == 1){
+                //the id does exist in the map
+                std::cout << "OLD BEAT: " << std::to_string(lastBeatTime[id]) << std::endl;
+                std::cout << "CURRENT TIME: " << std::to_string(beatTimeline.getTime()) << std::endl;
+                lastBeatTime[id] = beatTimeline.getTime() - lastBeatTime[id];
+            }
+            else{
+                lastBeatTime[id] = 0;
+            }
+            std::cout << "BEAT: " << beatMessage.to_string() << ": " << std::to_string(lastBeatTime[id]) << std::endl;
+            heartbeatSocket.send(zmq::message_t(), zmq::send_flags::none);
+        }
+
+        for(auto const& obj : lastBeatTime){
+            if(obj.second > 5){
+                //std::cout << "REMOVE: " << std::to_string(obj.first) << std::endl;
+            }
+        }
+    }
+    
+
+
+}
+
 void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gameObjects){
     //Initalize socket
     zmq::context_t context (2);
@@ -129,6 +170,8 @@ int main(){
     Timeline platformTime(&anchorTimeline);
 
     std::thread platformThread(movePlatforms, &platformTime, &gameObjects);
+    std::thread heartbeatThread(heartbeat);
+
 
     //Initalize sockets
     zmq::context_t context (2);

@@ -10,6 +10,7 @@
 #include "Timeline.h"
 #include "SpawnPoint.h"
 #include "GameShapes/DeathZone.h"
+#include <unistd.h>
 
 
 std::mutex platformMutex;
@@ -19,6 +20,32 @@ std::vector<std::string> parseMessage(std::string strToParse){
     std::istream_iterator<std::string> begin(ss), end;
     std::vector<std::string> words(begin, end);
     return words;
+}
+
+void heartbeat(int id){
+    //Connect to server
+    zmq::context_t context (1);
+    zmq::socket_t heartbeatSocket (context, zmq::socket_type::req);
+    heartbeatSocket.connect ("tcp://localhost:5559");
+    std::string idString = std::to_string(id);
+    std::cout << "ID STRING: " << idString << std::endl;
+    int strLen = idString.length();
+
+
+    while(true){
+        zmq::message_t idMessage(strLen);
+        memcpy(idMessage.data(), idString.c_str(), strLen);
+
+        std::cout << "SENDING: " << idMessage.to_string() << std::endl;
+
+        heartbeatSocket.send(idMessage, zmq::send_flags::none);
+        zmq::message_t recvMsg(0);
+        heartbeatSocket.recv(recvMsg, zmq::recv_flags::none);
+
+        sleep(3);
+    }
+
+
 }
 
 void platformMovement(std::map<int, CollidableObject*>* gameObjects){
@@ -162,10 +189,6 @@ int main(){
     Player * thisPlayer = (Player*)gameObjects[thisId];
     thisPlayer->setFillColor(sf::Color(100, 100, 100));
 
-    for(int i = 1; i <= 3; i++){
-        std::cout << gameObjects[i]->toString() << std::endl;
-    }
-
     sf::RenderWindow window(sf::VideoMode(SCENE_WIDTH, SCENE_HEIGHT), "My Window", sf::Style::Default);
 
     //generate side boundry
@@ -179,6 +202,7 @@ int main(){
 
     std::thread platformThread(platformMovement, &gameObjects);
     std::thread playerThread(playerPositionUpdates, &gameObjects, &players, thisId);
+    std::thread heartbeatThread(heartbeat, thisId);
 
 
     Timeline anchorTimeline;
