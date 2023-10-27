@@ -58,7 +58,7 @@ void platformMovement(std::map<int, CollidableObject*>* gameObjects){
         std::vector<std::string> words = parseMessage(positionUpdate.to_string());
         {
             std::lock_guard<std::mutex> lock(platformMutex);
-            //std::cout << "SETTING: " << updateString << std::endl;
+            //std::cout << "SETTING1: " << positionUpdate << std::endl;
             gameObjects->at(stoi(words[0]))->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
         }
     }
@@ -78,19 +78,19 @@ void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, std::v
         
         //NEW PLAYER
         if(words[0] == PLAYER_ID){
-            std::cout << "NEW PLAYER" << std::endl;
             int id = stoi(words[1]);
+            Player* newPlayer = new Player(id, sf::Vector2f(stof(words[2]), stof(words[3])), sf::Vector2f(stof(words[4]), stof(words[5])), sf::Vector2f(stof(words[6]), stof(words[7])), words[8]);
             {
                 std::lock_guard<std::mutex> lock(platformMutex);
-                Player* newPlayer = new Player(id, sf::Vector2f(stof(words[2]), stof(words[3])), sf::Vector2f(stof(words[4]), stof(words[5])), sf::Vector2f(stof(words[6]), stof(words[7])), words[8]);
                 gameObjects->insert(std::pair<int, CollidableObject*>(id, newPlayer));
                 players->push_back(newPlayer);
             }
         }
         else if(words[0] == DELETE_SIGN){
+            int id = stoi(words[1]);
             {
                 std::lock_guard<std::mutex> lock(platformMutex);
-                int id = stoi(words[1]);
+                std::cout << "DELETING1: " << positionUpdate << std::endl;
                 delete gameObjects->at(id);
                 gameObjects->erase(id);              
             }
@@ -98,10 +98,9 @@ void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, std::v
         else{
             int currentId = stoi(words[0]);
             if(currentId != thisId){
-                //std::cout << "Non player position recieved: " << updateString << std::endl;
-                //std::cout << "MOVING PLAYER " << updateString << std::endl;
                 {
                     std::lock_guard<std::mutex> lock(platformMutex);
+                    //std::cout << "SETTING2: " << positionUpdate << std::endl;
                     gameObjects->at(currentId)->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
                 }
 
@@ -114,7 +113,7 @@ void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, std::v
 int main(){
 
     //set spawnpoint to a base value for now so player can be made
-    SpawnPoint sp(sf::Vector2f(0,0));
+    SpawnPoint sp(sf::Vector2f(0,0), sf::Vector2f(0,0));
 
     std::map<int, CollidableObject*> gameObjects;
     std::vector<CollidableObject*> collidableObjects;
@@ -139,7 +138,7 @@ int main(){
     newPlayerSocket.recv(idMessage, zmq::recv_flags::none);
     std::cout << idMessage.to_string() << std::endl;
     int thisId = stoi(idMessage.to_string());
-    std::cout << "ID: " << idMessage.to_string() << std::endl;
+    std::cout << "Connected with ID: " << idMessage.to_string() << std::endl;
 
     int numPlatforms = 0;
     std::vector<sf::Color> platformColors{ sf::Color(252, 186, 3), sf::Color(53, 252, 3), sf::Color(3, 78, 252)};
@@ -149,7 +148,6 @@ int main(){
         newPlayerSocket.recv(objectMessage, zmq::recv_flags::none);
         std::vector<std::string> params = parseMessage(objectMessage.to_string());
         
-        std::cout << "Message: " << objectMessage.to_string() << std::endl;
         if(params[0] == PLATFORM_ID){
             int id = stoi(params[1]);
             Platform* pt = new Platform(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
@@ -170,7 +168,7 @@ int main(){
             players.push_back((Player*)gameObjects[id]);
         }
         else if(params[0] == SPAWN_POINT_ID){
-            sp = SpawnPoint(sf::Vector2f(stof(params[1]), stof(params[2])));
+            sp = SpawnPoint(sf::Vector2f(stof(params[1]), stof(params[2])), sf::Vector2f(stof(params[3]), stof(params[4])));
         }
         else if(params[0] == DEATH_ZONE_ID){
             int id = stoi(params[1]);
@@ -178,7 +176,6 @@ int main(){
             dz->setFillColor(sf::Color(255, 0, 0));
             gameObjects[id] = dz;
             deathZones.push_back(dz);
-            std::cout << "ADDING DZ" << std::endl;
         }
         else{
             std::cout << "ERROR: UNKNOWN OBJECT TYPE RECIEVED FROM SERVER" << std::endl;
@@ -255,17 +252,27 @@ int main(){
             }    
         }
         else if(pauseListenerMessage.to_string() == RESET_SCENE){
-            for(auto const& obj : gameObjects){
-                obj.second->setPosition(obj.second->startingPoint);
+            {
+                std::lock_guard<std::mutex> lock(platformMutex);
+                for(auto const& obj : gameObjects){
+                    obj.second->setPosition(obj.second->startingPoint);
+                }
+                sp.reset();
             }
+
         }
         else if(pauseListenerMessage.to_string().length() > 0){
             std::vector<std::string> words = parseMessage(pauseListenerMessage.to_string());
-            for(auto const& obj : gameObjects){
-                if(obj.second->objId != MOVING_PLATFORM_ID && obj.second->id != stoi(words[1]) && obj.second->id != 1){
-                    obj.second->translate(words[0], stoi(words[2]));
+            {
+                std::lock_guard<std::mutex> lock(platformMutex);
+                for(auto const& obj : gameObjects){
+                    if(obj.second->objId != MOVING_PLATFORM_ID && obj.second->id != stoi(words[1]) && obj.second->id != 1){
+                        obj.second->translate(words[0], stoi(words[2]));
+                    }
                 }
+                sp.translate(stoi(words[2]));
             }
+
         }        
 
         window.clear(sf::Color::Black);
@@ -326,7 +333,6 @@ int main(){
                 if(thisPlayer->getGlobalBounds().intersects(sb->getGlobalBounds())){
 
                     thisPlayer->resolveColision(sb);
-                    std::cout << "NEW POSITION FROM COLLIDING WITH SIDE: " << std::to_string(thisPlayer->getPosition().x) << ", " << std::to_string(thisPlayer->getPosition().y) << std::endl;
                     //LATERAL SHIFT
 
                     if(sb->side == RIGHT_SIDE){
@@ -366,7 +372,6 @@ int main(){
                 }
 
                 if(!otherCollidedWith){
-                    std::cout << "SENDING: " << translationString << std::endl;
                     zmq::message_t translateMessage(translationString.length());
                     memcpy(translateMessage.data(), translationString.c_str(), translationString.length());
                     newPlayerSocket.send(translateMessage, zmq::send_flags::none);
@@ -399,13 +404,4 @@ int main(){
         
         window.display();
     }
-
-    //remove player from game
-    std::string playerPosString = DELETE_SIGN + " " + std::to_string(thisPlayer->id);
-    zmq::message_t posMessage(playerPosString.length());
-    memcpy(posMessage.data(), playerPosString.c_str(), playerPosString.length());
-
-    newPlayerSocket.send(posMessage, zmq::send_flags::none);
-    zmq::message_t rep(0);
-    newPlayerSocket.recv(rep, zmq::recv_flags::none); 
 }

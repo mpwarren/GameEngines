@@ -10,6 +10,8 @@
 #include "GameShapes/DeathZone.h"
 
 
+std::mutex dataMutex;
+
 std::vector<std::string> parseMessage(std::string strToParse){
     std::istringstream ss(strToParse);
     std::istream_iterator<std::string> begin(ss), end;
@@ -63,7 +65,7 @@ void heartbeat(){
 
 }
 
-void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gameObjects){
+void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gameObjects, SpawnPoint * sp){
     //Initalize socket
     zmq::context_t context (2);
 
@@ -104,15 +106,23 @@ void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gam
                 }    
             }
             else if(words[0] == RESET_SCENE){
-                for(MovingPlatform * mvPlt : movingPlatforms){
-                    mvPlt->reset();
+                {
+                    std::lock_guard<std::mutex> lock(dataMutex);
+                    for(auto const& obj : *gameObjects){
+                        obj.second->reset();
+                    }
+                    sp->reset();
                 }
             }
             else if(words[0] == TRANSFORM_LEFT || words[0] == TRANSFORM_RIGHT){
-                for(auto const& obj : *gameObjects){
-                    if(obj.first != 1 and obj.first != stoi(words[1])){
-                        obj.second->translate(words[0], stoi(words[2]));
+                {
+                    std::lock_guard<std::mutex> lock(dataMutex);
+                    for(auto const& obj : *gameObjects){
+                        if(obj.first != 1 and obj.first != stoi(words[1])){
+                            obj.second->translate(words[0], stoi(words[2]));
+                        }
                     }
+
                 }
                 translated = true;
             }
@@ -124,6 +134,7 @@ void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gam
         lastTime = currentTime;
         if(!translated){
             if(frameDelta != 0){
+                std::lock_guard<std::mutex> lock(dataMutex);
                 for(MovingPlatform* obj : movingPlatforms){
                     obj->movePosition(frameDelta);
 
@@ -168,7 +179,7 @@ int main(){
     id++;
 
     //Set Spawn Point
-    SpawnPoint sp(sf::Vector2f(160, SCENE_HEIGHT - (50 + groundHeight)));
+    SpawnPoint sp(sf::Vector2f(375, 0), sf::Vector2f(375, 0));
 
     MovingPlatform horzPlatform(id, sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 500), sf::Vector2f(400, 500), "", Direction::horizontal, 0.5, 200);
     horzPlatform.setFillColor(sf::Color(150, 50, 250));
@@ -187,7 +198,7 @@ int main(){
     Timeline anchorTimeline;
     Timeline platformTime(&anchorTimeline);
 
-    std::thread platformThread(movePlatforms, &platformTime, &gameObjects);
+    std::thread platformThread(movePlatforms, &platformTime, &gameObjects, &sp);
     std::thread heartbeatThread(heartbeat);
 
 
@@ -211,6 +222,8 @@ int main(){
             zmq::message_t newResponse(std::to_string(id).length());
             memcpy(newResponse.data(), std::to_string(id).c_str(), std::to_string(id).length());
             playerConnectionSocket.send(newResponse, zmq::send_flags::sndmore);
+
+            std::lock_guard<std::mutex> lock(dataMutex);
 
             //add new player to list of objects
             gameObjects[id] = new Player(id, sf::Vector2f(50, 50), sp.getSpawnPoint(), sp.getSpawnPoint(), "");
@@ -244,6 +257,7 @@ int main(){
             std::vector<std::string> words = parseMessage(playerMessage.to_string());
 
             if(words[0] == DELETE_SIGN){
+                std::lock_guard<std::mutex> lock(dataMutex);
                 int id = stoi(words[1]);
                 delete gameObjects[id];
                 gameObjects.erase(id);
@@ -254,6 +268,7 @@ int main(){
                 pausePublisher.send(playerMessage, zmq::send_flags::none);
             }
             else{
+                std::lock_guard<std::mutex> lock(dataMutex);
                 gameObjects[stoi(words[0])]->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
                 //send out the position to all other clients
                 playerPositionPublisher.send(playerMessage, zmq::send_flags::none);
