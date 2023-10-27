@@ -1,21 +1,26 @@
-Matthew Warren - CSC481 HW3
+Matthew Warren
+CSC481 HW3
 
-Server thread for handling platform movement, PUB/SUB for sending out new positions (5555)
+COMPILING:
+- In the parent folder, call make to compile everything
 
-Server thread for handling player communication: Client will first sent REQ/REP: (5556)
-- first time joining:
-	- send back their id, then keep sending messages containing other players id and positions
-- Paused game
-- Their new position, PUB/SUB back out to everyone (5557)
+RUNNING:
+- Start the server first with ./server
+- Then run any clients with ./client
 
+CONTROLS:
+- A: Move Left
+- D: Move right
+- W: Jump
+- P: Pause the game with P
+- Z: 1/2x tic rate
+- X: normal tic rate
+- C: 2x tic rate
 
-Check for collision against platforms before applying player movement
-
-
-Client has thread to constantly read moving platform updates
-
-Client has thread to handle player actions
-
-
-MODEL DESIGN:
-- Have objects that hold most information (behavior, )
+GAMEPLAY:
+- The clients character is marked with grey, all other clients on the network are white
+- Pausing will pause the game for everyone, but anyone can unpause it
+- Changing the tic rate will only change it for that client's player
+- All players must stay on the screen. The game will not side scroll with one player at each end
+- Death zones are marked in red. Any player that hits them will reset the level
+- When a networked player disconnects, it will take a few seconds to update on the other clients
