@@ -168,7 +168,6 @@ int main(){
             players.push_back((Player*)gameObjects[id]);
         }
         else if(params[0] == SPAWN_POINT_ID){
-            std::cout <<"SENT SP: " << objectMessage << std::endl;
             sp = SpawnPoint(sf::Vector2f(stof(params[1]), stof(params[2])), sf::Vector2f(stof(params[3]), stof(params[4])));
         }
         else if(params[0] == DEATH_ZONE_ID){
@@ -402,7 +401,6 @@ int main(){
         //window.draw(*boundaries[0]);
         //window.draw(*boundaries[1]);
 
-        //std::cout <<"SP: " << std::to_string(sp.getSpawnPoint().x) << std::endl;
         window.display();
     }
 }
