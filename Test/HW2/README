@@ -1,0 +1,31 @@
+Matthew Warren - CSC481 HW2
+
+I combined sections 1 and 2 into a single project, sections 3 and 4 I kept seperate. 
+
+Section 4 should work, so for grading purposes im not sure if you will need to check section 3 but I kept it in just in case.
+
+Section 4 has multithreading but not timeline code incoperated in it.
+
+Each section folder has its own makefile that can be run useing "make" in the main part of the folder
+
+Player movement is done with the WASD keys
+
+SECTION 1 and 2
+the makefile will create an executable that can be run with:
+./hw2exe
+
+Pressing P will pause or unpause the game
+
+Pressing F will run the game at 0.5x speed
+Pressing G will run the game at 1x speed
+pressing H will run the game at 2x speed
+
+SECTION 3 and 4
+the makefile create 2 executables that can be run like so:
+./server
+./client
+
+with ./server to start the server first, and ./client can be run in up to 3 process to connect to the server to performed the desired action.
+
+The writeup is in a pdf at the root of the submission with this README
+
