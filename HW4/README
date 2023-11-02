@@ -24,3 +24,29 @@ GAMEPLAY:
 - All players must stay on the screen. The game will not side scroll with one player at each end
 - Death zones are marked in red. Any player that hits them will reset the level
 - When a networked player disconnects, it will take a few seconds to update on the other clients
+
+
+ITERATION NOTES:
+EVENT TYPES:
+- collision
+- spawn
+- death
+- user input
+- translate left
+- translate right
+- add other player
+- move other player
+- remove other player
+
+HANDLERS/WHAT REGISTERED TO
+Collision Handler: collision event
+
+Move Character Handler: spawn
+
+Other Character Handler: add, move, remove other player
+
+Reset Handler: death
+
+Translate Handler: translate left, translate right
+
+Input Hander: input event
