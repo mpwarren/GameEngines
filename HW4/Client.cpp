@@ -77,6 +77,7 @@ void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, std::v
         recievePlayerPositionSocket.recv(positionUpdate, zmq::recv_flags::none);
         std::vector<std::string> words = parseMessage(positionUpdate.to_string());
         
+
         //NEW PLAYER
         if(words[0] == PLAYER_ID){
             int id = stoi(words[1]);
@@ -215,11 +216,7 @@ int main(){
 
             if(event.type == sf::Event::KeyPressed){
                 if(event.key.code == sf::Keyboard::P){
-                    zmq::message_t pauseMessage(1);
-                    memcpy(pauseMessage.data(), "P", 1);
-                    newPlayerSocket.send(pauseMessage, zmq::send_flags::none);
-                    zmq::message_t rep(0);
-                    newPlayerSocket.recv(rep, zmq::recv_flags::none); 
+                    //PAUSING CODE HERE
                 }
                 if(event.key.code == sf::Keyboard::Z){
                     gameTime.changeTic(TIC_HALF);
@@ -248,8 +245,8 @@ int main(){
         }
         if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
             //Create event string to send to server
-            std::string moveEventString = std::to_string((int)INPUT_MOVEMENT) + " " + std::to_string(thisId) + " A " + std::to_string(frameDelta);
-            zmq::message_t eventMsg;
+            std::string moveEventString = std::to_string((int)INPUT_MOVEMENT) + " " + std::to_string(gameTime.getTime()) + " " + std::to_string((int)HIGH) + " " + std::to_string(thisId) + " A " + std::to_string(frameDelta);
+            zmq::message_t eventMsg(moveEventString.length());
             memcpy(eventMsg.data(), moveEventString.c_str(), moveEventString.length());
             EventSender.send(eventMsg, zmq::send_flags::none);
             zmq::message_t rep;
@@ -257,8 +254,8 @@ int main(){
         }
         if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
             //Create event string to send to server
-            std::string moveEventString = std::to_string((int)INPUT_MOVEMENT) + " " + std::to_string((int)HIGH) + " " + std::to_string(thisId) + " D " + std::to_string(frameDelta);
-            zmq::message_t eventMsg;
+            std::string moveEventString = std::to_string((int)INPUT_MOVEMENT) + " " + std::to_string(gameTime.getTime()) + " " + std::to_string((int)HIGH) + " " + std::to_string(thisId) + " D " + std::to_string(frameDelta);
+            zmq::message_t eventMsg(moveEventString.length());
             memcpy(eventMsg.data(), moveEventString.c_str(), moveEventString.length());
             EventSender.send(eventMsg, zmq::send_flags::none);
             zmq::message_t rep;

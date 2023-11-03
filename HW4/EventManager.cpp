@@ -12,11 +12,13 @@ EventManager::EventManager(){
 }
 
 void EventManager::addHandler(std::vector<EventType> types, EventHandler* handler){
+    std::lock_guard<std::mutex> lock(mutex);
     for(EventType t : types){
         handlers[t].push_back(handler);
     }
 }
 
 void EventManager::addToQueue(Event* e){
+    std::lock_guard<std::mutex> lock(mutex);
     eventQueue.push(e);
 }

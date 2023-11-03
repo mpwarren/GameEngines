@@ -17,6 +17,7 @@ class EventManager{
         EventManager();
         void addHandler(std::vector<EventType> types, EventHandler* handler);
         void addToQueue(Event* e);
+        std::mutex mutex;
 };
 
 #endif

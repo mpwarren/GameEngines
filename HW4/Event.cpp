@@ -11,3 +11,7 @@ std::string Event::toString(){
 MovementInputEvent::MovementInputEvent(int64_t ts, Priority p, int id, char k, int64_t fd) : Event(ts, p), playerId{id}, key{k}, frameDelta{fd} {
     eventType = INPUT_MOVEMENT;
 }
+
+std::string MovementInputEvent::toString(){
+    return "";
+}

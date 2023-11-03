@@ -3,11 +3,20 @@ SHAPESDIR = GameShapes/
 
 all: server client
 
-server: Server.o Constants.o DeathZone.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o 
-	$(CC) Server.o Constants.o DeathZone.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o server -lsfml-graphics -lsfml-system -pthread -lzmq
+server: Server.o Constants.o Event.o EventHandler.o EventManager.o DeathZone.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o 
+	$(CC) Server.o Constants.o Event.o EventHandler.o EventManager.o DeathZone.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o server -lsfml-graphics -lsfml-system -pthread -lzmq
 
-client: Client.o Constants.o DeathZone.o SideBoundry.o SpawnPoint.o CollidableObject.o MovingPlatform.o Platform.o Player.o
-	$(CC) Client.o Constants.o DeathZone.o SideBoundry.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o client -lsfml-graphics -lsfml-window -lsfml-system -pthread -lzmq
+client: Client.o Constants.o Event.o DeathZone.o SideBoundry.o SpawnPoint.o CollidableObject.o MovingPlatform.o Platform.o Player.o
+	$(CC) Client.o Constants.o Event.o DeathZone.o SideBoundry.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o client -lsfml-graphics -lsfml-window -lsfml-system -pthread -lzmq
+
+Event.o: Event.h Event.cpp
+	$(CC) -c Event.cpp
+
+EventHandler.o: EventHandler.h EventHandler.cpp
+	$(CC) -c EventHandler.cpp
+
+EventManager.o: EventManager.h EventManager.cpp
+	$(CC) -c EventManager.cpp
 
 Constants.o: Constants.h Constants.cpp
 	$(CC) -c Constants.cpp

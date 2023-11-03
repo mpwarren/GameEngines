@@ -33,7 +33,7 @@ class Event{
         Priority priority;
 };
 
-class MovementInputEvent : Event{
+class MovementInputEvent : public Event{
     public:
         MovementInputEvent(int64_t ts, Priority p, int id, char k, int64_t fd);
         std::string toString() override;

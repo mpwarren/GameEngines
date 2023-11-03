@@ -21,6 +21,7 @@ std::vector<std::string> parseMessage(std::string strToParse){
     return words;
 }
 
+/*
 void heartbeat(){
     //Initalize socket
     zmq::context_t context(1);
@@ -66,6 +67,7 @@ void heartbeat(){
 
 
 }
+*/
 
 void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gameObjects, SpawnPoint * sp){
     //Initalize socket
@@ -75,10 +77,6 @@ void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gam
     //int conflate = 1;
     //platformMovementSocket.setsockopt(ZMQ_CONFLATE, &conflate, sizeof(conflate));
     platformMovementSocket.bind ("tcp://*:5555");
-
-    zmq::socket_t pauseListener (context, zmq::socket_type::sub);
-    pauseListener.connect ("tcp://localhost:5558");
-    pauseListener.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
     int64_t lastTime = platformTime->getTime();
 
@@ -91,61 +89,19 @@ void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gam
 
     while (true){
 
-        zmq::message_t pauseListenerMessage;
-        pauseListener.recv(pauseListenerMessage, zmq::recv_flags::dontwait);
-
-        bool translated = false;
-
-        if(pauseListenerMessage.to_string().length() > 0){
-            std::vector<std::string> words = parseMessage(pauseListenerMessage.to_string());
-            if(words[0] == PAUSING_SIGN){
-                if(platformTime->isPaused()){
-                    int64_t elapsedTime = platformTime->unpause();
-                    lastTime = platformTime->getTime();
-                }
-                else{
-                    platformTime->pause(lastTime);
-                }    
-            }
-            else if(words[0] == RESET_SCENE){
-                {
-                    std::lock_guard<std::mutex> lock(dataMutex);
-                    for(auto const& obj : *gameObjects){
-                        obj.second->reset();
-                    }
-                    sp->reset();
-                }
-            }
-            else if(words[0] == TRANSFORM_LEFT || words[0] == TRANSFORM_RIGHT){
-                {
-                    std::lock_guard<std::mutex> lock(dataMutex);
-                    for(auto const& obj : *gameObjects){
-                        if(obj.first != 1 and obj.first != stoi(words[1])){
-                            obj.second->translate(words[0], stoi(words[2]));
-                        }
-                    }
-
-                }
-                translated = true;
-            }
-        }
-
-
         int64_t currentTime = platformTime->getTime();
         int64_t frameDelta = currentTime - lastTime;
         lastTime = currentTime;
-        if(!translated){
-            if(frameDelta != 0){
-                std::lock_guard<std::mutex> lock(dataMutex);
-                for(MovingPlatform* obj : movingPlatforms){
-                    obj->movePosition(frameDelta);
+        if(frameDelta != 0){
+            std::lock_guard<std::mutex> lock(dataMutex);
+            for(MovingPlatform* obj : movingPlatforms){
+                obj->movePosition(frameDelta);
 
-                    std::string platformPositionStr = std::to_string(obj->id) + " " + std::to_string(obj->getPosition().x) + " " + std::to_string(obj->getPosition().y) + "\0";
-                    zmq::message_t posMessage(platformPositionStr.length());
-                    memcpy(posMessage.data(), platformPositionStr.c_str(), platformPositionStr.length());
-                    platformMovementSocket.send(posMessage, zmq::send_flags::none);
+                std::string platformPositionStr = std::to_string(obj->id) + " " + std::to_string(obj->getPosition().x) + " " + std::to_string(obj->getPosition().y) + "\0";
+                zmq::message_t posMessage(platformPositionStr.length());
+                memcpy(posMessage.data(), platformPositionStr.c_str(), platformPositionStr.length());
+                platformMovementSocket.send(posMessage, zmq::send_flags::none);
 
-                }
             }
         }
 
@@ -154,7 +110,8 @@ void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gam
 }
 
 
-void newPlayerThread(int id, std::map<int, CollidableObject*> gameObjects, SpawnPoint* sp){
+void newPlayerFunction(int id, std::map<int, CollidableObject*>* gameObjects, SpawnPoint* sp){
+    int currentId = id;
     zmq::context_t context (1);
     zmq::socket_t playerConnectionSocket (context, zmq::socket_type::rep);
     playerConnectionSocket.bind ("tcp://*:5556");
@@ -164,18 +121,18 @@ void newPlayerThread(int id, std::map<int, CollidableObject*> gameObjects, Spawn
         playerConnectionSocket.recv(playerMessage, zmq::recv_flags::none);
 
         //Send the client their player's id
-        zmq::message_t newResponse(std::to_string(id).length());
-        memcpy(newResponse.data(), std::to_string(id).c_str(), std::to_string(id).length());
+        zmq::message_t newResponse(std::to_string(currentId).length());
+        memcpy(newResponse.data(), std::to_string(currentId).c_str(), std::to_string(id).length());
         playerConnectionSocket.send(newResponse, zmq::send_flags::sndmore);
 
         std::lock_guard<std::mutex> lock(dataMutex);
 
         //add new player to list of objects
-        gameObjects[id] = new Player(id, sf::Vector2f(50, 50), sp->getSpawnPoint(), sp->getSpawnPoint(), "");
+        gameObjects->insert({currentId, new Player(currentId, sf::Vector2f(50, 50), sp->getSpawnPoint(), sp->getSpawnPoint(), "")});
         std::cout<< "new player added " << std::endl;
 
         //send platform and other collidable objects
-        for(auto const& obj : gameObjects){
+        for(auto const& obj : *gameObjects){
             zmq::message_t platformMessage(obj.second->toString().length());
             memcpy(platformMessage.data(), obj.second->toString().c_str(), obj.second->toString().length());
             playerConnectionSocket.send(platformMessage, zmq::send_flags::sndmore);
@@ -188,13 +145,40 @@ void newPlayerThread(int id, std::map<int, CollidableObject*> gameObjects, Spawn
         playerConnectionSocket.send(spawnPointMessage, zmq::send_flags::none);
 
         //send new player out to existing clients
+        /*
         std::string newPlayerString = gameObjects[id]->toString();
         zmq::message_t newPlayerMessage(newPlayerString.length());
         memcpy(newPlayerMessage.data(), newPlayerString.c_str(), newPlayerString.length());
         playerPositionPublisher.send(newPlayerMessage, zmq::send_flags::none);
+        */
 
-        id++;
+        currentId++;
+
     }
+}
+
+void eventListnerFunction(EventManager* eventManager){
+    zmq::context_t context (1);
+    zmq::socket_t eventListner (context, zmq::socket_type::rep);
+    eventListner.bind ("tcp://*:5558");
+
+    while(true){
+        zmq::message_t eventMessage;
+        eventListner.recv(eventMessage, zmq::recv_flags::none);
+
+        //make the event object
+        std::vector<std::string> params = parseMessage(eventMessage.to_string());
+        Event * ev;
+        if((EventType)stoi(params[0]) == INPUT_MOVEMENT){
+            ev = new MovementInputEvent(stoi(params[1]), (Priority)stoi(params[2]), stoi(params[3]), params[4][0], stoi(params[5]));
+            eventManager->addToQueue(ev);
+        }
+
+        zmq::message_t rep;
+        eventListner.send(rep, zmq::send_flags::none);
+    }
+
+
 }
 
 
@@ -244,36 +228,30 @@ int main(){
     Timeline anchorTimeline;
     Timeline gameTimeline(&anchorTimeline);
 
-    std::thread platformThread(movePlatforms, &gameTimeline, &gameObjects, &sp);
-    std::thread heartbeatThread(heartbeat);
-
-
-    //Initalize sockets
-    zmq::context_t context (2);
-
-    zmq::socket_t playerPositionPublisher (context, zmq::socket_type::pub);
-    playerPositionPublisher.bind ("tcp://*:5557");
-
-    zmq::socket_t eventListner (context, zmq::socket_type::rep);
-    eventListner.bind ("tcp://*:5558");
 
     //create event Handlers
     EventManager *eventManager = new EventManager();
     PlayerHandler * playerHandler = new PlayerHandler(&dataMutex, &gameObjects);
     eventManager->addHandler(std::vector<EventType>{INPUT_MOVEMENT}, playerHandler);
 
+    //start threads
+    std::thread platformThread(movePlatforms, &gameTimeline, &gameObjects, &sp);
+    //std::thread heartbeatThread(heartbeat);
+    std::thread newPlayerThread(newPlayerFunction, id, &gameObjects, &sp);
+    std::thread eventListnerThread(eventListnerFunction, eventManager);
+
     while(true){
-        zmq::message_t eventMessage;
-        eventListner.recv(eventMessage, zmq::recv_flags::none);
-
-        //make the event object
-        std::vector<std::string> params = parseMessage(eventMessage.to_string());
-        MovementInputEvent* ev = new MovementInputEvent(stoi(params[0]), (Priority)stoi(params[1]), stoi(params[2]), params[3][0], stoi(params[4]));
-        
-
-        while(eventManager->eventQueue.top()->timeStamp <= gameTimeline.getTime()){
-
+        {
+            std::lock_guard<std::mutex> lock(eventManager->mutex);
+            while(!eventManager->eventQueue.empty() && eventManager->eventQueue.top()->timeStamp <= gameTimeline.getTime()){
+                Event * ev = eventManager->eventQueue.top();
+                for(EventHandler* h : eventManager->handlers[ev->eventType]){
+                    h->onEvent(ev);
+                }
+                eventManager->eventQueue.pop();
+                delete ev;
+            }
         }
+
     }
-    
 }

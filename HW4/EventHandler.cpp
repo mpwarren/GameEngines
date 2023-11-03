@@ -11,6 +11,7 @@ void EventHandler::onEvent(Event* e){
 PlayerHandler::PlayerHandler(std::mutex* m, std::map<int, CollidableObject*>* go) : EventHandler(m, go){
     context = new zmq::context_t(1);
     playerPosPub = new zmq::socket_t (*context, zmq::socket_type::pub);
+    playerPosPub->bind("tcp://*:5557");
 }
 
 void PlayerHandler::onEvent(Event *e){
@@ -27,7 +28,7 @@ void PlayerHandler::onEvent(Event *e){
         }
 
         //publish new player position
-        zmq::message_t posMsg;
+        zmq::message_t posMsg(playerPosString.length());
         memcpy(posMsg.data(), playerPosString.c_str(), playerPosString.length());
         playerPosPub->send(posMsg, zmq::send_flags::none);
 
