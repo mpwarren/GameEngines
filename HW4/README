@@ -50,3 +50,11 @@ Reset Handler: death
 Translate Handler: translate left, translate right
 
 Input Hander: input event
+
+
+
+THIS PLAYER HANDLER: input event, spawn event, death event translate event
+
+OTHER PLAYER HANDLER: ADD/MOVE/REMOVE OTHER PLAYER, translate event
+
+WORLD HANDLER: translate event

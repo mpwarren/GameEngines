@@ -10,7 +10,6 @@
 #include "Timeline.h"
 #include "SpawnPoint.h"
 #include "GameShapes/DeathZone.h"
-#include "Event.h"
 #include <unistd.h>
 
 
@@ -122,8 +121,9 @@ int main(){
     zmq::socket_t newPlayerSocket (context, zmq::socket_type::req);
     newPlayerSocket.connect ("tcp://localhost:5556");
 
-    zmq::socket_t EventSender (context, zmq::socket_type::req);
-    EventSender.connect ("tcp://localhost:5558");
+    zmq::socket_t pauseListener (context, zmq::socket_type::sub);
+    pauseListener.connect ("tcp://localhost:5558");
+    pauseListener.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
     zmq::message_t newConnection(2);
     memcpy(newConnection.data(), NEW_PLAYER_SIGN.c_str(), 2);
@@ -235,44 +235,168 @@ int main(){
                 }
             }
         }
-        window.clear();
+
+        zmq::message_t pauseListenerMessage;
+        pauseListener.recv(pauseListenerMessage, zmq::recv_flags::dontwait);
+        if(pauseListenerMessage.to_string() == PAUSING_SIGN){
+            if(gameTime.isPaused()){
+                int64_t elapsedTime = gameTime.unpause();
+                lastTime = gameTime.getTime();
+            }
+            else{
+                gameTime.pause(lastTime);
+            }    
+        }
+        else if(pauseListenerMessage.to_string() == RESET_SCENE){
+            {
+                std::lock_guard<std::mutex> lock(platformMutex);
+                for(auto const& obj : gameObjects){
+                    obj.second->setPosition(obj.second->startingPoint);
+                }
+                sp.reset();
+            }
+
+        }
+        //TRANSLATION
+        else if(pauseListenerMessage.to_string().length() > 0){
+            std::vector<std::string> words = parseMessage(pauseListenerMessage.to_string());
+            {
+                std::lock_guard<std::mutex> lock(platformMutex);
+                for(auto const& obj : gameObjects){
+                    if(obj.second->objId != MOVING_PLATFORM_ID && obj.second->id != stoi(words[1]) && obj.second->id != 1){
+                        obj.second->translate(words[0], stoi(words[2]));
+                    }
+                }
+                sp.translate(words[0], stoi(words[2]));
+            }
+
+        }        
+
+        window.clear(sf::Color::Black);
 
 
         int64_t currentTime = gameTime.getTime();
         int64_t frameDelta = currentTime - lastTime;
         lastTime = currentTime;
 
-        //MOVEMENT
+        bool moved = false;
         if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
             thisPlayer->setJumping();
         }
         if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
-            //Create event string to send to server
-            std::string moveEventString = std::to_string((int)INPUT_MOVEMENT) + " " + std::to_string(thisId) + " A " + std::to_string(frameDelta);
-            zmq::message_t eventMsg;
-            memcpy(eventMsg.data(), moveEventString.c_str(), moveEventString.length());
-            EventSender.send(eventMsg, zmq::send_flags::none);
-            zmq::message_t rep;
-            EventSender.recv(rep, zmq::recv_flags::none);
+            thisPlayer->movePlayer('A', frameDelta);
+            moved = true;
         }
         if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
-            //Create event string to send to server
-            std::string moveEventString = std::to_string((int)INPUT_MOVEMENT) + " " + std::to_string((int)HIGH) + " " + std::to_string(thisId) + " D " + std::to_string(frameDelta);
-            zmq::message_t eventMsg;
-            memcpy(eventMsg.data(), moveEventString.c_str(), moveEventString.length());
-            EventSender.send(eventMsg, zmq::send_flags::none);
-            zmq::message_t rep;
-            EventSender.recv(rep, zmq::recv_flags::none);
+            thisPlayer->movePlayer('D', frameDelta);
+            moved = true;
         }
 
+        bool died = false;
+        for(DeathZone* dz : deathZones){
+            if(thisPlayer->getGlobalBounds().intersects(dz->getGlobalBounds())){
+                died = true;
+                zmq::message_t resetMessage(2);
+                memcpy(resetMessage.data(), RESET_SCENE.c_str(), 2);
+                newPlayerSocket.send(resetMessage, zmq::send_flags::none);
+                zmq::message_t rep(0);
+                newPlayerSocket.recv(rep, zmq::recv_flags::none); 
+                break;
+            }
+        }
 
-        //DRAWING
+        if(!died){
+            //gravity
+            float ground = 585;
+            bool playerColliding = (thisPlayer->getPosition().y + 50 >= ground);
+            thisPlayer->gravity(frameDelta, playerColliding);
+
+            {
+                std::lock_guard<std::mutex> lock(platformMutex);
+                for(CollidableObject* obj : collidableObjects){
+                    if(thisPlayer->getGlobalBounds().intersects(obj->getGlobalBounds())){
+                        thisPlayer->resolveColision(obj);
+                        playerColliding = true;
+                    }
+                }
+
+                thisPlayer->setColliding(playerColliding);
+            }
+                
+            std::string translationString;
+
+            for(SideBoundry* sb : boundaries){
+                sb->isCollidedWith = false;
+                if(thisPlayer->getGlobalBounds().intersects(sb->getGlobalBounds())){
+
+                    thisPlayer->resolveColision(sb);
+                    //LATERAL SHIFT
+
+                    if(sb->side == RIGHT_SIDE){
+                        //shift everything left
+                        translationString = TRANSFORM_LEFT + " " + std::to_string(thisPlayer->id) + " " + std::to_string(frameDelta);
+                    }
+                    else{
+                        //shift everything right
+                        translationString = TRANSFORM_RIGHT + " " + std::to_string(thisPlayer->id) + " " + std::to_string(frameDelta);
+                    }
+                    sb->isCollidedWith = true;
+
+                }
+            }
+
+            // std::cout << "RIGHT: " << std::to_string(boundaries[0]->isCollidedWith) << std::endl;
+            // std::cout << "LEFT: " << std::to_string(boundaries[1]->isCollidedWith) << std::endl;
+
+            if(boundaries[0]->isCollidedWith || boundaries[1]->isCollidedWith){
+                bool otherCollidedWith = false;
+                for(Player * pl : players){
+                    if(pl->id != thisId){
+                        if(boundaries[0]->isCollidedWith){
+                            //check the other one
+                            if(pl->getPosition().x <= boundaries[1]->getPosition().x + 1){
+                                otherCollidedWith = true;
+                                break;
+                            }
+                        }
+                        else{
+                            if(pl->getPosition().x + pl->getSize().x >= boundaries[0]->getPosition().x){
+                                otherCollidedWith = true;
+                                break;
+                            }   
+                        }
+                    }
+                }
+
+                if(!otherCollidedWith){
+                    zmq::message_t translateMessage(translationString.length());
+                    memcpy(translateMessage.data(), translationString.c_str(), translationString.length());
+                    newPlayerSocket.send(translateMessage, zmq::send_flags::none);
+                    zmq::message_t rep(0);
+                    newPlayerSocket.recv(rep, zmq::recv_flags::none); 
+                }
+            }
+        }
+
+        //update server on player's position
+        std::string playerPosString = std::to_string(thisPlayer->id) + " " + std::to_string(thisPlayer->getPosition().x) + " " + std::to_string(thisPlayer->getPosition().y);
+        zmq::message_t posMessage(playerPosString.length());
+        memcpy(posMessage.data(), playerPosString.c_str(), playerPosString.length());
+
+        newPlayerSocket.send(posMessage, zmq::send_flags::none);
+        zmq::message_t rep(0);
+        newPlayerSocket.recv(rep, zmq::recv_flags::none);     
+
         {
             std::lock_guard<std::mutex> lock(platformMutex);
             for(auto const& obj : gameObjects){
                 window.draw(*obj.second);
             }
         }
+
+        //DRAW BOUNDARIES (REMOVE LATER)
+        //window.draw(*boundaries[0]);
+        //window.draw(*boundaries[1]);
 
         window.display();
     }

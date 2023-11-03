@@ -7,20 +7,19 @@ Player::Player(int id, sf::Vector2f size, sf::Vector2f position, sf::Vector2f st
     jumpHeight = 200;
 }
 
-void Player::movePlayer(sf::Keyboard::Key key, int64_t frameDelta){
-    float xDir = 0;
-    float yDir = 0;
+void Player::movePlayer(char key, int64_t frameDelta){
+    float xDir;
 
     float velocity = 0.5;
 
-    if(key == sf::Keyboard::A){
+    if(key == 'A'){
         xDir = -1 * velocity * frameDelta;
     }
-    else if(key == sf::Keyboard::D){
+    else if(key == 'D'){
         xDir = 1 * velocity * frameDelta;
     }
 
-    move(xDir, yDir);
+    move(xDir, 0);
 
 }
 

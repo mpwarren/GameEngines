@@ -2,31 +2,25 @@
 #define EVENT_HANDLER_H
 
 #include "Event.h"
+#include <mutex>
+#include <zmq.hpp>
 
 class EventHandler{
     public:
-        virtual void onEvent(Event e);
+        std::mutex* objMutex;
+        std::map<int, CollidableObject*>* gameObjects;
+        EventHandler(std::mutex* m, std::map<int, CollidableObject*>* go);
+        virtual void onEvent(Event *e);
+};
 
-}
-
-class CollisionHandler : public EventHandler{
+class PlayerHandler : public EventHandler{
     public:
-        void onEvent(Event e);
-}
-
-class SpawnHandler : public EventHandler{
-    public:
-        void onEvent(Event e);
-}
-
-class DeathHandler : public EventHandler{
-    public:
-        void onEvent(Event e);
-}
-
-class InputHandler : public EventHandler{
-    public:
-        void onEvent(Event e);
-}
+        PlayerHandler(std::mutex* m, std::map<int, CollidableObject*>* go);
+        void onEvent(Event *e) override;
+    
+    private:
+        zmq::context_t * context;
+        zmq::socket_t * playerPosPub;
+};
 
 #endif
