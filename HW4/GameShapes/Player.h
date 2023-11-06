@@ -12,8 +12,10 @@ class Player : public CollidableObject{
         bool isJumping();
         void setJumping();
         void jump();
-        void gravity(int64_t frameDelta, bool groundLevel);
+        bool gravity(int64_t frameDelta, bool groundLevel);
         void setColliding(bool isColliding);
+        bool checkCollision(CollidableObject* other);
+
 
     private:
         bool jumping;

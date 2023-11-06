@@ -28,8 +28,9 @@ void CollidableObject::applyTexture(std::string filePath){
 
 /*
     AABB collision detection
+    returns true if the collision is under the called object
 */
-void CollidableObject::resolveColision(CollidableObject* other){
+bool CollidableObject::resolveColision(CollidableObject* other){
 
     sf::Vector2f otherPos = other->getPosition();
     sf::Vector2f otherSize = other->getSize();
@@ -51,6 +52,7 @@ void CollidableObject::resolveColision(CollidableObject* other){
     //move player to right outside of the colliding side
     if(min == colTop){
         setPosition(thisPos.x, otherPos.y - thisSize.y);
+        return true;
     }
     else if(min == colBot){
         setPosition(thisPos.x, otherPos.y + otherSize.y);
@@ -61,6 +63,7 @@ void CollidableObject::resolveColision(CollidableObject* other){
     else if(min == colLeft){
         setPosition(otherPos.x - thisSize.x, thisPos.y);
     }
+    return false;
         
     
 }

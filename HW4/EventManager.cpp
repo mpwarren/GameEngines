@@ -1,7 +1,7 @@
 #include "EventManager.h"
 
-bool CompareEvent::operator()(Event* e1, Event* e2){
-    return e1->timeStamp < e2->timeStamp;
+bool CompareEvent::operator()(std::shared_ptr<Event> e1, std::shared_ptr<Event> e2){
+    return e1->timeStamp > e2->timeStamp;
 }
 
 EventManager::EventManager(){
@@ -18,7 +18,19 @@ void EventManager::addHandler(std::vector<EventType> types, EventHandler* handle
     }
 }
 
-void EventManager::addToQueue(Event* e){
-    std::lock_guard<std::mutex> lock(mutex);
-    eventQueue.push(e);
+void EventManager::addToQueue(std::shared_ptr<Event> e){
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+
+        if(e->priority == HIGH){
+            eventQueueHigh.push(e);
+        }
+        else if(e->priority == MEDIUM){
+            eventQueueMedium.push(e);
+        }
+        else if(e->priority == LOW){
+            eventQueueLow.push(e);
+        }
+    }
+
 }

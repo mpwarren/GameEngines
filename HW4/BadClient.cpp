@@ -11,12 +11,10 @@
 #include "SpawnPoint.h"
 #include "GameShapes/DeathZone.h"
 #include "Event.h"
-#include "EventHandler.h"
-#include "EventManager.h"
 #include <unistd.h>
 
 
-std::mutex dataMutex;
+std::mutex platformMutex;
 
 std::vector<std::string> parseMessage(std::string strToParse){
     std::istringstream ss(strToParse);
@@ -25,30 +23,30 @@ std::vector<std::string> parseMessage(std::string strToParse){
     return words;
 }
 
-// void heartbeat(int id){
-//     //Connect to server
-//     zmq::context_t context (1);
-//     zmq::socket_t heartbeatSocket (context, zmq::socket_type::req);
-//     heartbeatSocket.connect ("tcp://localhost:5559");
-//     std::string idString = std::to_string(id);
-//     int strLen = idString.length();
+void heartbeat(int id){
+    //Connect to server
+    zmq::context_t context (1);
+    zmq::socket_t heartbeatSocket (context, zmq::socket_type::req);
+    heartbeatSocket.connect ("tcp://localhost:5559");
+    std::string idString = std::to_string(id);
+    int strLen = idString.length();
 
 
-//     while(true){
-//         zmq::message_t idMessage(strLen);
-//         memcpy(idMessage.data(), idString.c_str(), strLen);
+    while(true){
+        zmq::message_t idMessage(strLen);
+        memcpy(idMessage.data(), idString.c_str(), strLen);
 
-//         heartbeatSocket.send(idMessage, zmq::send_flags::none);
-//         zmq::message_t recvMsg(0);
-//         heartbeatSocket.recv(recvMsg, zmq::recv_flags::none);
+        heartbeatSocket.send(idMessage, zmq::send_flags::none);
+        zmq::message_t recvMsg(0);
+        heartbeatSocket.recv(recvMsg, zmq::recv_flags::none);
 
-//         sleep(3);
-//     }
+        sleep(3);
+    }
 
 
-// }
+}
 
-void platformMovement(std::map<int, CollidableObject*>* gameObjects, Player* thisPlayer){
+void platformMovement(std::map<int, CollidableObject*>* gameObjects){
     //  Prepare our context and socket
     zmq::context_t context (1);
     zmq::socket_t platformReciever (context, zmq::socket_type::sub);
@@ -57,15 +55,12 @@ void platformMovement(std::map<int, CollidableObject*>* gameObjects, Player* thi
 
     while(true){
         zmq::message_t positionUpdate;
-        //std::cout <<"WAITING ON PLATFORM UPDATE" << std::endl;
         platformReciever.recv(positionUpdate, zmq::recv_flags::none);
-        //std::cout <<"GOT PLATFORM UPDATE" << positionUpdate.to_string() << std::endl;
         std::vector<std::string> words = parseMessage(positionUpdate.to_string());
         {
-            std::lock_guard<std::mutex> lock(dataMutex);
+            std::lock_guard<std::mutex> lock(platformMutex);
             //std::cout << "SETTING1: " << positionUpdate << std::endl;
             gameObjects->at(stoi(words[0]))->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
-            thisPlayer->gravity(1, (thisPlayer->getPosition().y + 50 >= 585));
         }
     }
 }
@@ -84,44 +79,34 @@ void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, std::v
         
         //std::cout <<"PLAYER MOVEMENT: " << positionUpdate.to_string() << std::endl;
 
-        int currentId = stoi(words[0]);
-        std::cout << "Recieved new position: " << positionUpdate.to_string() << std::endl;
-        {
-            std::lock_guard<std::mutex> lock(dataMutex);
-            gameObjects->at(currentId)->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
+        //NEW PLAYER
+        if(words[0] == PLAYER_ID){
+            int id = stoi(words[1]);
+            Player* newPlayer = new Player(id, sf::Vector2f(stof(words[2]), stof(words[3])), sf::Vector2f(stof(words[4]), stof(words[5])), sf::Vector2f(stof(words[6]), stof(words[7])), words[8]);
+            {
+                std::lock_guard<std::mutex> lock(platformMutex);
+                gameObjects->insert(std::pair<int, CollidableObject*>(id, newPlayer));
+                players->push_back(newPlayer);
+            }
         }
-        
+        else if(words[0] == DELETE_SIGN){
+            int id = stoi(words[1]);
+            {
+                std::lock_guard<std::mutex> lock(platformMutex);
+                std::cout << "DELETING1: " << positionUpdate << std::endl;
+                delete gameObjects->at(id);
+                gameObjects->erase(id);              
+            }
+        }
+        else{
+            int currentId = stoi(words[0]);
+            std::cout << "Recieved new position: " << positionUpdate.to_string() << std::endl;
+            {
+                std::lock_guard<std::mutex> lock(platformMutex);
+                gameObjects->at(currentId)->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
+            }
+        }
     }    
-}
-
-void eventProcessor(EventManager * eventManager, Timeline* gameTimeline){
-    while(true)
-    {
-        //Process Events
-        std::lock_guard<std::mutex> lock(eventManager->mutex);
-        while(!eventManager->eventQueueHigh.empty() && eventManager->eventQueueHigh.top()->timeStamp <= gameTimeline->getTime()){
-            std::shared_ptr<Event> ev = eventManager->eventQueueHigh.top();
-            for(EventHandler* h : eventManager->handlers[ev->eventType]){
-                h->onEvent(ev);
-            }
-            eventManager->eventQueueHigh.pop();
-        }
-        while(!eventManager->eventQueueMedium.empty() && eventManager->eventQueueMedium.top()->timeStamp <= gameTimeline->getTime()){
-            std::shared_ptr<Event> ev = eventManager->eventQueueMedium.top();
-            for(EventHandler* h : eventManager->handlers[ev->eventType]){
-                h->onEvent(ev);
-            }
-            eventManager->eventQueueMedium.pop();
-        }
-        while(!eventManager->eventQueueLow.empty() && eventManager->eventQueueLow.top()->timeStamp <= gameTimeline->getTime()){
-             std::shared_ptr<Event> ev = eventManager->eventQueueLow.top();
-            for(EventHandler* h : eventManager->handlers[ev->eventType]){
-                h->onEvent(ev);
-            }
-            eventManager->eventQueueLow.pop();
-        }
-
-    }
 }
 
 
@@ -168,9 +153,7 @@ int main(){
             pt->setFillColor(platformColors[numPlatforms % platformColors.size()]);
             numPlatforms++;
             gameObjects[id] = pt;
-            if(pt->id != 1){
-                collidableObjects.push_back(pt);
-            }
+            collidableObjects.push_back(pt);
         }
         else if(params[0] == MOVING_PLATFORM_ID){
             int id = stoi(params[1]);
@@ -207,32 +190,22 @@ int main(){
     sf::RenderWindow window(sf::VideoMode(SCENE_WIDTH, SCENE_HEIGHT), "My Window", sf::Style::Default);
 
     //generate side boundry
-    // std::vector<SideBoundry*> boundaries;
-    // int distanceFromEdge = 50;
-    // SideBoundry* boundry1 = new SideBoundry(100, sf::Vector2f(SCENE_WIDTH - distanceFromEdge , -50), sf::Vector2f(SCENE_WIDTH - distanceFromEdge , -50), RIGHT_SIDE);
-    // boundaries.push_back(boundry1);
-    // SideBoundry* boundry2 = new SideBoundry(101, sf::Vector2f(distanceFromEdge, -50), sf::Vector2f(distanceFromEdge, -50), LEFT_SIDE);
-    // boundaries.push_back(boundry2);
+    std::vector<SideBoundry*> boundaries;
+    int distanceFromEdge = 50;
+    SideBoundry* boundry1 = new SideBoundry(100, sf::Vector2f(SCENE_WIDTH - distanceFromEdge , -50), sf::Vector2f(SCENE_WIDTH - distanceFromEdge , -50), RIGHT_SIDE);
+    boundaries.push_back(boundry1);
+    SideBoundry* boundry2 = new SideBoundry(101, sf::Vector2f(distanceFromEdge, -50), sf::Vector2f(distanceFromEdge, -50), LEFT_SIDE);
+    boundaries.push_back(boundry2);
+
+
+    std::thread platformThread(platformMovement, &gameObjects);
+    std::thread playerThread(playerPositionUpdates, &gameObjects, &players, thisId);
+    std::thread heartbeatThread(heartbeat, thisId);
+
 
     Timeline anchorTimeline;
     Timeline gameTime(&anchorTimeline);
     int64_t lastTime = gameTime.getTime();
-
-    //create event Handlers
-    EventManager *eventManager = new EventManager();
-    PlayerHandler * playerHandler = new PlayerHandler(&dataMutex, &gameObjects);
-    eventManager->addHandler(std::vector<EventType>{INPUT_MOVEMENT, GRAVITY, COLLISION_EVENT}, playerHandler);
-
-    std::thread platformThread(platformMovement, &gameObjects, thisPlayer);
-    std::thread playerThread(playerPositionUpdates, &gameObjects, &players, thisId);
-    std::thread eventProcessorThread(eventProcessor, eventManager, &gameTime);
-    //std::thread heartbeatThread(heartbeat, thisId);
-
-
-
-        
-
-
 
     while(window.isOpen()){
         
@@ -272,40 +245,39 @@ int main(){
 
         //MOVEMENT
         if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
-            std::shared_ptr<MovementInputEvent> e = std::make_shared<MovementInputEvent>(currentTime, HIGH, thisId, 'W', frameDelta);
-            eventManager->addToQueue(e);
+            std::string moveEventString = std::to_string((int)INPUT_MOVEMENT) + " " + std::to_string(gameTime.getTime()) + " " + std::to_string((int)HIGH) + " " + std::to_string(thisId) + " W " + std::to_string(frameDelta);
+            zmq::message_t eventMsg(moveEventString.length());
+            memcpy(eventMsg.data(), moveEventString.c_str(), moveEventString.length());
+            EventSender.send(eventMsg, zmq::send_flags::none);
+            zmq::message_t rep;
+            //std::cout << "WAITING ON REP" << std::endl;
+            //EventSender.recv(rep, zmq::recv_flags::none);
         }
         if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
-            std::shared_ptr<MovementInputEvent> e = std::make_shared<MovementInputEvent>(currentTime, HIGH, thisId, 'A', frameDelta);
-            eventManager->addToQueue(e);
+            //Create event string to send to server
+            std::string moveEventString = std::to_string((int)INPUT_MOVEMENT) + " " + std::to_string(gameTime.getTime()) + " " + std::to_string((int)HIGH) + " " + std::to_string(thisId) + " A " + std::to_string(frameDelta);
+            zmq::message_t eventMsg(moveEventString.length());
+            memcpy(eventMsg.data(), moveEventString.c_str(), moveEventString.length());
+            EventSender.send(eventMsg, zmq::send_flags::none);
+            //zmq::message_t rep;
+            //std::cout << "WAITING ON REP" << std::endl;
+            //EventSender.recv(rep, zmq::recv_flags::none);
+            //std::cout << "REP GOT" << std::endl;
         }
         if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
-            std::shared_ptr<MovementInputEvent> e = std::make_shared<MovementInputEvent>(currentTime, HIGH, thisId, 'D', frameDelta);
-            eventManager->addToQueue(e);
+            //Create event string to send to server
+            std::string moveEventString = std::to_string((int)INPUT_MOVEMENT) + " " + std::to_string(gameTime.getTime()) + " " + std::to_string((int)HIGH) + " " + std::to_string(thisId) + " D " + std::to_string(frameDelta);
+            zmq::message_t eventMsg(moveEventString.length());
+            memcpy(eventMsg.data(), moveEventString.c_str(), moveEventString.length());
+            EventSender.send(eventMsg, zmq::send_flags::none);
+            //zmq::message_t rep;
+            //EventSender.recv(rep, zmq::recv_flags::none);
         }
 
 
-
-        //GRAVITY/COLLISIONS/DRAWING
+        //DRAWING
         {
-            std::unique_lock<std::mutex> lock(dataMutex);
-
-            if(thisPlayer->gravity(frameDelta, (thisPlayer->getPosition().y + 50 >= 585))){
-                std::shared_ptr<GravityEvent> e = std::make_shared<GravityEvent>(currentTime, HIGH, thisId);
-                lock.unlock();
-                eventManager->addToQueue(e);
-                lock.lock();
-            }
-
-            for(CollidableObject * co : collidableObjects){
-                if(thisPlayer->checkCollision(co)){
-                    std::shared_ptr<CollisionEvent> e = std::make_shared<CollisionEvent>(currentTime, MEDIUM, thisId, co->id);
-                    lock.unlock();
-                    eventManager->addToQueue(e);
-                    lock.lock();
-                }
-            }
-
+            std::lock_guard<std::mutex> lock(platformMutex);
             for(auto const& obj : gameObjects){
                 window.draw(*obj.second);
             }

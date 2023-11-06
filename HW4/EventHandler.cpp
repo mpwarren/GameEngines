@@ -4,30 +4,66 @@ EventHandler::EventHandler(std::mutex* m, std::map<int, CollidableObject*>* go) 
 
 }
 
-void EventHandler::onEvent(Event* e){
+void EventHandler::onEvent(std::shared_ptr<Event> e){
 
 }
 
 PlayerHandler::PlayerHandler(std::mutex* m, std::map<int, CollidableObject*>* go) : EventHandler(m, go){
     context = new zmq::context_t(1);
-    playerPosPub = new zmq::socket_t (*context, zmq::socket_type::pub);
-    playerPosPub->bind("tcp://*:5557");
+    playerPosPub = new zmq::socket_t (*context, zmq::socket_type::push);
+    playerPosPub->connect("tcp://localhost:5557");
 }
 
-void PlayerHandler::onEvent(Event *e){
+void PlayerHandler::onEvent(std::shared_ptr<Event> e){
     if(e->eventType == INPUT_MOVEMENT){
         //move the player
-        MovementInputEvent *inputEvent = (MovementInputEvent*)e;
+        std::shared_ptr<MovementInputEvent> inputEvent = std::dynamic_pointer_cast<MovementInputEvent>(e);
+        Player* p = (Player*)gameObjects->at(inputEvent->playerId);
+
+        if(inputEvent->key == 'W'){
+            std::lock_guard<std::mutex> lock(*objMutex);
+            std::cout << "SET JUMPING\n";
+            p->setJumping();
+        }
+        else if(inputEvent->key == 'A' || inputEvent->key == 'D'){
+            std::string playerPosString;
+            {
+                std::lock_guard<std::mutex> lock(*objMutex);
+                p->movePlayer(inputEvent->key, inputEvent->frameDelta);
+
+                playerPosString = std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
+            }
+
+            //push new player position
+            zmq::message_t posMsg(playerPosString.length());
+            memcpy(posMsg.data(), playerPosString.c_str(), playerPosString.length());
+            playerPosPub->send(posMsg, zmq::send_flags::none);
+            //std::cout << "DONE WITH INPUT" << std::endl;
+        }
+    }
+    else if(e->eventType == GRAVITY){
+        std::string playerPosString = "";
+        std::shared_ptr<GravityEvent> gravityEvent = std::dynamic_pointer_cast<GravityEvent>(e);
+        {
+            std::lock_guard<std::mutex> lock(*objMutex);
+            Player* p = (Player*)gameObjects->at(gravityEvent->thisId);
+            playerPosString = std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
+        }
+        //push new player position
+        zmq::message_t posMsg(playerPosString.length());
+        memcpy(posMsg.data(), playerPosString.c_str(), playerPosString.length());
+        playerPosPub->send(posMsg, zmq::send_flags::none);
+    }
+    else if(e->eventType == COLLISION_EVENT){
         std::string playerPosString;
         {
             std::lock_guard<std::mutex> lock(*objMutex);
-            Player* p = (Player*)gameObjects->at(inputEvent->playerId);
-            p->movePlayer(inputEvent->key, inputEvent->frameDelta);
-
+            std::shared_ptr<CollisionEvent> collisionEvent = std::dynamic_pointer_cast<CollisionEvent>(e);
+            Player* p = (Player*)gameObjects->at(collisionEvent->playerId);
+            CollidableObject* co = gameObjects->at(collisionEvent->otherId);
+            p->resolveColision(co);
             playerPosString = std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
         }
-
-        //publish new player position
         zmq::message_t posMsg(playerPosString.length());
         memcpy(posMsg.data(), playerPosString.c_str(), playerPosString.length());
         playerPosPub->send(posMsg, zmq::send_flags::none);

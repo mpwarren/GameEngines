@@ -20,7 +20,7 @@ class CollidableObject : public sf::RectangleShape{
 
         CollidableObject(int id, sf::Vector2f size, sf::Vector2f position, sf::Vector2f startingPosition, std::string texturePath);
 
-        void resolveColision(CollidableObject* other);
+        bool resolveColision(CollidableObject* other);
 
         void applyTexture(std::string filePath);
 

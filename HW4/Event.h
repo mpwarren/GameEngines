@@ -4,6 +4,7 @@
 #include <cstdint>
 #include "GameShapes/Player.h"
 
+//KEEP UNKNOWN AT THE BOTTOM, USED FOR ITERATION
 enum EventType{
     COLLISION_EVENT,
     SPAWN_EVENT,
@@ -15,6 +16,7 @@ enum EventType{
     ADD_OTHER_PLAYER,
     MOVE_OTHER_PLAYER,
     REMOVE_PLAYER,
+    GRAVITY,
     UNKNOWN
 };
 
@@ -41,5 +43,21 @@ class MovementInputEvent : public Event{
         char key;
         int64_t frameDelta;
 };
+
+class GravityEvent : public Event{
+    public:
+        GravityEvent(int64_t ts, Priority p, int tId);
+        std::string toString() override;
+        int thisId;
+};
+
+class CollisionEvent : public Event{
+    public:
+        CollisionEvent(int64_t ts, Priority p, int pId, int oId);
+        std::string toString() override;
+        int playerId;
+        int otherId;
+};
+
 
 #endif 

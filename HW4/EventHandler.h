@@ -10,13 +10,13 @@ class EventHandler{
         std::mutex* objMutex;
         std::map<int, CollidableObject*>* gameObjects;
         EventHandler(std::mutex* m, std::map<int, CollidableObject*>* go);
-        virtual void onEvent(Event *e);
+        virtual void onEvent(std::shared_ptr<Event> e);
 };
 
 class PlayerHandler : public EventHandler{
     public:
         PlayerHandler(std::mutex* m, std::map<int, CollidableObject*>* go);
-        void onEvent(Event *e) override;
+        void onEvent(std::shared_ptr<Event> e) override;
     
     private:
         zmq::context_t * context;
