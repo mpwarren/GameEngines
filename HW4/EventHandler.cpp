@@ -30,49 +30,35 @@ void PlayerHandler::onEvent(std::shared_ptr<Event> e){
             p->setJumping();
         }
         else if(inputEvent->key == 'A' || inputEvent->key == 'D'){
-            //std::string playerPosString;
             {
                 std::lock_guard<std::mutex> lock(*objMutex);
                 p->movePlayer(inputEvent->key, inputEvent->frameDelta);
-
-                //playerPosString = std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
             }
-
-            //push new player position
-            //zmq::message_t posMsg(playerPosString.length());
-            //memcpy(posMsg.data(), playerPosString.c_str(), playerPosString.length());
-            //playerPosPub->send(posMsg, zmq::send_flags::none);
-            //std::cout << "DONE WITH INPUT" << std::endl;
         }
     }
     else if(e->eventType == GRAVITY){
-        //std::string playerPosString = "";
         std::shared_ptr<GravityEvent> gravityEvent = std::dynamic_pointer_cast<GravityEvent>(e);
         {
             std::lock_guard<std::mutex> lock(*objMutex);
             Player* p = (Player*)gameObjects->at(gravityEvent->thisId);
-            //playerPosString = std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
         }
-        //push new player position
-        //zmq::message_t posMsg(playerPosString.length());
-        //memcpy(posMsg.data(), playerPosString.c_str(), playerPosString.length());
-        //playerPosPub->send(posMsg, zmq::send_flags::none);
     }
     else if(e->eventType == COLLISION_EVENT){
-        //std::string playerPosString;
         {
             std::lock_guard<std::mutex> lock(*objMutex);
             std::shared_ptr<CollisionEvent> collisionEvent = std::dynamic_pointer_cast<CollisionEvent>(e);
             Player* p = (Player*)gameObjects->at(collisionEvent->playerId);
             CollidableObject* co = gameObjects->at(collisionEvent->otherId);
-            
-            p->setIsCollidingUnder(p->resolveColision(co));
 
-            //playerPosString = std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
+            if(co->objId == DEATH_ZONE_ID){
+
+            }
+            else{
+                p->setIsCollidingUnder(p->resolveColision(co));
+            }
+            
         }
-        //zmq::message_t posMsg(playerPosString.length());
-        //memcpy(posMsg.data(), playerPosString.c_str(), playerPosString.length());
-        //playerPosPub->send(posMsg, zmq::send_flags::none);
+
 
     }
     else if(e->eventType == SPAWN_EVENT){
@@ -92,7 +78,6 @@ WorldHandler::WorldHandler(std::mutex* m, std::map<int, CollidableObject*>* go, 
 
 void WorldHandler::onEvent(std::shared_ptr<Event> e){
     if(e->eventType == ADD_OTHER_PLAYER){
-        std::cout << "HANDLING NEW PLAYER EVENT";
         std::shared_ptr<AddOtherPlayerEvent> addPlayerEvent = std::dynamic_pointer_cast<AddOtherPlayerEvent>(e);
         std::vector<std::string> params = parseEventMessage(addPlayerEvent->playerString);
         Player * p = new Player(stoi(params[1]), sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
@@ -100,6 +85,22 @@ void WorldHandler::onEvent(std::shared_ptr<Event> e){
             std::lock_guard<std::mutex> lock(*objMutex);
             if(gameObjects->count(p->id) != 1){
                 gameObjects->insert({p->id, p});
+                std::cout<< "new player added " << std::endl;
+            }
+        }
+    }
+    else if(e->eventType == MOVE_PLAYER_EVENT){
+        std::shared_ptr<UpdatePlayerPositionEvent> moveCharEvent = std::dynamic_pointer_cast<UpdatePlayerPositionEvent>(e);
+        {
+            std::lock_guard<std::mutex> lock(*objMutex);
+            gameObjects->at(moveCharEvent->playerId)->setPosition(sf::Vector2f(moveCharEvent->xPos, moveCharEvent->yPos));
+        }
+    }
+    else if(e->eventType == DEATH_EVENT){
+        {
+            std::lock_guard<std::mutex> lock(*objMutex);
+            for(auto const& obj : *gameObjects){
+                obj.second->setPosition(obj.second->startingPoint);
             }
         }
     }

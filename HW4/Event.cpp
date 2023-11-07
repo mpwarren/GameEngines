@@ -47,3 +47,19 @@ AddOtherPlayerEvent::AddOtherPlayerEvent(int64_t ts, Priority p, std::string ps)
 std::string AddOtherPlayerEvent::toString(){
     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + playerString;
 }
+
+UpdatePlayerPositionEvent::UpdatePlayerPositionEvent(int64_t ts, Priority p, int id, float x, float y) : Event(ts, p), playerId{id}, xPos{x}, yPos{y} {
+    eventType = MOVE_PLAYER_EVENT;
+}
+
+std::string UpdatePlayerPositionEvent::toString(){
+    return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(playerId) + " " + std::to_string(xPos)  + " " + std::to_string(yPos);
+}
+
+DeathEvent::DeathEvent(int64_t ts, Priority p) : Event(ts, p) {
+    eventType = DEATH_EVENT;
+}
+
+std::string DeathEvent::toString(){
+    return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority);
+}

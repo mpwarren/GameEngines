@@ -106,7 +106,7 @@ void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gam
 }
 
 
-void EventPublisher(){
+void EventPublisher(EventManager *em, Timeline* timeline){
     zmq::context_t context(1);
     zmq::socket_t serverEventListner(context, zmq::socket_type::pull);
     serverEventListner.bind("tcp://*:5560");
@@ -117,7 +117,30 @@ void EventPublisher(){
     while(true){
         zmq::message_t eventMessage;
         serverEventListner.recv(eventMessage, zmq::recv_flags::none);
-        
+        //std::cout << "PRE PLAYER STRING: " << eventMessage.to_string() << std::flush;
+
+        //add it to server event manager
+        std::vector<std::string> params = parseMessage(eventMessage.to_string());
+        EventType t = (EventType)stoi(params[0]);
+        if(t == ADD_OTHER_PLAYER){
+            std::string playerString = "";
+            for(int i = 3; i <= 11; i++ ){
+                playerString += params[i] + " ";
+            }
+            //std::cout << "PLAYER STRING: " << playerString << std::flush;
+            std::shared_ptr<AddOtherPlayerEvent> e = std::make_shared<AddOtherPlayerEvent>(timeline->getTime(), (Priority)stoi(params[2]), playerString);
+            em->addToQueue(e);
+        }
+        else if(t == MOVE_PLAYER_EVENT){
+            std::shared_ptr<UpdatePlayerPositionEvent> e = std::make_shared<UpdatePlayerPositionEvent>(timeline->getTime(), (Priority)stoi(params[1]), stoi(params[2]), stof(params[3]), stof(params[4]));
+            em->addToQueue(e);
+        }
+        else if(t == DEATH_EVENT){
+            std::shared_ptr<DeathEvent> e = std::make_shared<DeathEvent>(timeline->getTime(), (Priority)stoi(params[1]));
+            em->addToQueue(e);
+        }
+
+        //send it to clients
         eventPublisher.send(eventMessage, zmq::send_flags::none);
     }
 }
@@ -133,21 +156,19 @@ void newPlayerFunction(int id, std::map<int, CollidableObject*>* gameObjects, Sp
     serverEventSender.connect("tcp://localhost:5560");
 
     while(true){
-        zmq::message_t playerMessage;
-        playerConnectionSocket.recv(playerMessage, zmq::recv_flags::none);
+        zmq::message_t pm;
+        playerConnectionSocket.recv(pm, zmq::recv_flags::none);
 
         //Send the client their player's id
         zmq::message_t newResponse(std::to_string(currentId).length());
-        memcpy(newResponse.data(), std::to_string(currentId).c_str(), std::to_string(id).length());
+        memcpy(newResponse.data(), std::to_string(currentId).c_str(), std::to_string(currentId).length());
         playerConnectionSocket.send(newResponse, zmq::send_flags::sndmore);
 
         std::lock_guard<std::mutex> lock(dataMutex);
 
-        //add new player to list of objects
-        gameObjects->insert({currentId, new Player(currentId, sf::Vector2f(50, 50), sp->getSpawnPoint(), sp->getSpawnPoint(), "")});
-        std::cout<< "new player added " << std::endl;
+        //create new player
+        Player p(currentId, sf::Vector2f(50, 50), sp->getSpawnPoint(), sp->getSpawnPoint(), "");
 
-        
         //send platform and other collidable objects
         for(auto const& obj : *gameObjects){
             zmq::message_t platformMessage(obj.second->toString().length());
@@ -155,21 +176,25 @@ void newPlayerFunction(int id, std::map<int, CollidableObject*>* gameObjects, Sp
             playerConnectionSocket.send(platformMessage, zmq::send_flags::sndmore);
         }
 
+        //send player
+        std::string playerString = p.toString();
+        zmq::message_t playerMessage(playerString.length());
+        memcpy(playerMessage.data(), playerString.c_str(), playerString.length());
+        playerConnectionSocket.send(playerMessage, zmq::send_flags::sndmore);
+
         //send spawn point
         std::string spString = sp->toString();
         zmq::message_t spawnPointMessage(spString.length());
         memcpy(spawnPointMessage.data(), spString.c_str(), spString.length());
         playerConnectionSocket.send(spawnPointMessage, zmq::send_flags::none);
 
-        //send new player event out to existing clients
+        currentId++; 
 
-        std::string newPlayerEventString = std::to_string((int)ADD_OTHER_PLAYER) + " 0 " + std::to_string((int)LOW) + " " + gameObjects->at(id)->toString();
-        std::cout << "NEW PLAYER EVENT STRING: " << newPlayerEventString << std::endl;
+        //send new player event out to existing clients
+        std::string newPlayerEventString = std::to_string((int)ADD_OTHER_PLAYER) + " 0 " + std::to_string((int)LOW) + " " + p.toString();
         zmq::message_t newPlayerMessage(newPlayerEventString.length());
         memcpy(newPlayerMessage.data(), newPlayerEventString.c_str(), newPlayerEventString.length());
         serverEventSender.send(newPlayerMessage, zmq::send_flags::none);
-
-        currentId++;
 
     }
 }
@@ -263,20 +288,20 @@ int main(){
 
     //create event Handlers
     EventManager *eventManager = new EventManager();
-    PlayerHandler * playerHandler = new PlayerHandler(&dataMutex, &gameObjects);
-    eventManager->addHandler(std::vector<EventType>{INPUT_MOVEMENT, GRAVITY, COLLISION_EVENT}, playerHandler);
+    WorldHandler * worldHandler = new WorldHandler(&dataMutex, &gameObjects, &gameTimeline);
+    eventManager->addHandler(std::vector<EventType>{MOVE_PLAYER_EVENT, ADD_OTHER_PLAYER, DEATH_EVENT}, worldHandler);
 
     //start threads
     std::thread platformThread(movePlatforms, &gameTimeline, &gameObjects, &sp);
     //std::thread heartbeatThread(heartbeat);
     std::thread newPlayerThread(newPlayerFunction, id, &gameObjects, &sp);
     //std::thread eventListnerThread(eventListnerFunction, eventManager, &gameTimeline);
-    std::thread eventPublisherThread(EventPublisher);
+    std::thread eventPublisherThread(EventPublisher, eventManager, &gameTimeline);
 
     //sockets
     zmq::context_t context(1);
-    zmq::socket_t pullPlayerPos(context, zmq::socket_type::pull);
-    pullPlayerPos.bind("tcp://*:5557");
+    zmq::socket_t pullEvents(context, zmq::socket_type::pull);
+    pullEvents.bind("tcp://*:5557");
 
     zmq::socket_t publishPlayerPos(context, zmq::socket_type::pub);
     publishPlayerPos.bind("tcp://*:5558");
@@ -284,10 +309,30 @@ int main(){
 
     while(true){
 
-        zmq::message_t playerPos;
-        pullPlayerPos.recv(playerPos, zmq::recv_flags::none);
-        //std::cout << "Recieved new Position: " << playerPos.to_string() << std::endl;
-        publishPlayerPos.send(playerPos, zmq::send_flags::none);
+        {
+            std::lock_guard<std::mutex> lock(eventManager->mutex);
+            while(!eventManager->eventQueueHigh.empty() && eventManager->eventQueueHigh.top()->timeStamp <= gameTimeline.getTime()){
+                std::shared_ptr<Event> ev = eventManager->eventQueueHigh.top();
+                for(EventHandler* h : eventManager->handlers[ev->eventType]){
+                    h->onEvent(ev);
+                }
+                eventManager->eventQueueHigh.pop();
+            }
+            while(!eventManager->eventQueueMedium.empty() && eventManager->eventQueueMedium.top()->timeStamp <= gameTimeline.getTime()){
+                std::shared_ptr<Event> ev = eventManager->eventQueueMedium.top();
+                for(EventHandler* h : eventManager->handlers[ev->eventType]){
+                    h->onEvent(ev);
+                }
+                eventManager->eventQueueMedium.pop();
+            }
+            while(!eventManager->eventQueueLow.empty() && eventManager->eventQueueLow.top()->timeStamp <= gameTimeline.getTime()){
+                std::shared_ptr<Event> ev = eventManager->eventQueueLow.top();
+                for(EventHandler* h : eventManager->handlers[ev->eventType]){
+                    h->onEvent(ev);
+                }
+                eventManager->eventQueueLow.pop();
+            }
+        }
 
     }
 }

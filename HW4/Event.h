@@ -15,7 +15,7 @@ enum EventType{
     TRANSLATE_LEFT,
     TRANSLATE_RIGHT,
     ADD_OTHER_PLAYER,
-    MOVE_OTHER_PLAYER,
+    MOVE_PLAYER_EVENT,
     REMOVE_PLAYER,
     GRAVITY,
     UNKNOWN
@@ -74,6 +74,23 @@ class AddOtherPlayerEvent : public Event{
         std::string toString() override;
         std::string playerString;
 };
+
+class UpdatePlayerPositionEvent : public Event{
+    public:
+        UpdatePlayerPositionEvent(int64_t ts, Priority p, int id, float x, float y);
+        std::string toString() override;
+        int playerId;
+        float xPos;
+        float yPos;
+};
+
+class DeathEvent : public Event{
+    public:
+        DeathEvent(int64_t ts, Priority p);
+        std::string toString() override;
+};
+
+
 
 
 #endif 
