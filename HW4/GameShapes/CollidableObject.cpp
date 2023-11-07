@@ -55,7 +55,7 @@ bool CollidableObject::resolveColision(CollidableObject* other){
         return true;
     }
     else if(min == colBot){
-        setPosition(thisPos.x, otherPos.y + otherSize.y);
+        setPosition(thisPos.x, otherPos.y + thisSize.y);
     }
     else if(min == colRight){
         setPosition(otherPos.x + otherSize.x, thisPos.y);

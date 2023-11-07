@@ -23,8 +23,8 @@ void Player::movePlayer(char key, int64_t frameDelta){
 
 }
 
-bool Player::gravity(int64_t frameDelta, bool groundLevel, std::vector<CollidableObject*>* collidableObjects){
-    // int velocity = frameDelta;
+bool Player::gravity(int64_t frameDelta){
+    float velocity = 0.5;
     // if(!jumping && !groundLevel){
     //     move(0, velocity);
     //     return true;
@@ -40,10 +40,8 @@ bool Player::gravity(int64_t frameDelta, bool groundLevel, std::vector<Collidabl
     // }
     // return false;
 
-
-    int velocity = frameDelta;
     if(jumping){
-        move(0, -1 * velocity);
+        move(0, -1 * velocity * frameDelta);
         
         if(getPosition().y <= jumpPeak){
             jumping = false;
@@ -51,10 +49,13 @@ bool Player::gravity(int64_t frameDelta, bool groundLevel, std::vector<Collidabl
         }
         return true;
     }
-    else if(!jumping && !groundLevel){
-        for(CollidableObject * co : *collidableObjects){}
+    else if(!isCollidingUnder){
+        move(0, velocity * frameDelta);
+        return true;
     }
+
     return false;
+
 }
 
 bool Player::isJumping(){
@@ -64,7 +65,6 @@ bool Player::isJumping(){
 void Player::setJumping(){
     if(!jumping && colliding){
         jumping = true;
-        std::cout << "JUMPING == TRUE\n";
         jumpPeak = getPosition().y - jumpHeight;
     }
 }
@@ -78,8 +78,10 @@ void Player::setColliding(bool isColliding){
     }
 }
 
+void Player::setIsCollidingUnder(bool iCU){
+    isCollidingUnder = iCU;
+}
+
 bool Player::checkCollision(CollidableObject* other){
-    bool isCol = getGlobalBounds().intersects(other->getGlobalBounds());
-    setColliding(isCol);
-    return isCol;
+    return getGlobalBounds().intersects(other->getGlobalBounds());
 }

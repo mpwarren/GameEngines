@@ -19,8 +19,8 @@ class PlayerHandler : public EventHandler{
         void onEvent(std::shared_ptr<Event> e) override;
     
     private:
-        zmq::context_t * context;
-        zmq::socket_t * playerPosPub;
+        //zmq::context_t * context;
+        //zmq::socket_t * playerPosPub;
 };
 
 #endif

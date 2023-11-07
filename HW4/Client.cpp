@@ -65,7 +65,7 @@ void platformMovement(std::map<int, CollidableObject*>* gameObjects, Player* thi
             std::lock_guard<std::mutex> lock(dataMutex);
             //std::cout << "SETTING1: " << positionUpdate << std::endl;
             gameObjects->at(stoi(words[0]))->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
-            thisPlayer->gravity(1, (thisPlayer->getPosition().y + 50 >= 585));
+            thisPlayer->gravity(1);
         }
     }
 }
@@ -140,8 +140,11 @@ int main(){
     zmq::socket_t newPlayerSocket (context, zmq::socket_type::req);
     newPlayerSocket.connect ("tcp://localhost:5556");
 
-    zmq::socket_t EventSender (context, zmq::socket_type::push);
-    EventSender.connect ("tcp://localhost:5558");
+    zmq::socket_t playerPosPub(context, zmq::socket_type::push);
+    playerPosPub.connect("tcp://localhost:5557");
+
+    //zmq::socket_t EventSender (context, zmq::socket_type::push);
+    //EventSender.connect ("tcp://localhost:5558");
 
     zmq::message_t newConnection(2);
     memcpy(newConnection.data(), NEW_PLAYER_SIGN.c_str(), 2);
@@ -168,9 +171,7 @@ int main(){
             pt->setFillColor(platformColors[numPlatforms % platformColors.size()]);
             numPlatforms++;
             gameObjects[id] = pt;
-            if(pt->id != 1){
-                collidableObjects.push_back(pt);
-            }
+            collidableObjects.push_back(pt);
         }
         else if(params[0] == MOVING_PLATFORM_ID){
             int id = stoi(params[1]);
@@ -225,13 +226,14 @@ int main(){
 
     std::thread platformThread(platformMovement, &gameObjects, thisPlayer);
     std::thread playerThread(playerPositionUpdates, &gameObjects, &players, thisId);
-    std::thread eventProcessorThread(eventProcessor, eventManager, &gameTime);
+    //std::thread eventProcessorThread(eventProcessor, eventManager, &gameTime);
     //std::thread heartbeatThread(heartbeat, thisId);
 
 
 
         
-
+    float prevX = 0;
+    float prevY = 0;
 
 
     while(window.isOpen()){
@@ -290,21 +292,72 @@ int main(){
         {
             std::unique_lock<std::mutex> lock(dataMutex);
 
-            if(thisPlayer->gravity(frameDelta, (thisPlayer->getPosition().y + 50 >= 585))){
+            if(thisPlayer->gravity(frameDelta)){
                 std::shared_ptr<GravityEvent> e = std::make_shared<GravityEvent>(currentTime, HIGH, thisId);
                 lock.unlock();
                 eventManager->addToQueue(e);
                 lock.lock();
             }
 
+            bool collided = false;
             for(CollidableObject * co : collidableObjects){
                 if(thisPlayer->checkCollision(co)){
                     std::shared_ptr<CollisionEvent> e = std::make_shared<CollisionEvent>(currentTime, MEDIUM, thisId, co->id);
                     lock.unlock();
+                    collided = true;
                     eventManager->addToQueue(e);
                     lock.lock();
                 }
             }
+            thisPlayer->setColliding(collided);
+            if(!collided){
+                thisPlayer->setIsCollidingUnder(false);
+            }
+
+//-----------------------------------------------------------------
+
+            lock.unlock();
+            //Process Events
+            {
+                std::lock_guard<std::mutex> lock(eventManager->mutex);
+                while(!eventManager->eventQueueHigh.empty() && eventManager->eventQueueHigh.top()->timeStamp <= gameTime.getTime()){
+                    std::shared_ptr<Event> ev = eventManager->eventQueueHigh.top();
+                    for(EventHandler* h : eventManager->handlers[ev->eventType]){
+                        h->onEvent(ev);
+                    }
+                    eventManager->eventQueueHigh.pop();
+                }
+                while(!eventManager->eventQueueMedium.empty() && eventManager->eventQueueMedium.top()->timeStamp <= gameTime.getTime()){
+                    std::shared_ptr<Event> ev = eventManager->eventQueueMedium.top();
+                    for(EventHandler* h : eventManager->handlers[ev->eventType]){
+                        h->onEvent(ev);
+                    }
+                    eventManager->eventQueueMedium.pop();
+                }
+                while(!eventManager->eventQueueLow.empty() && eventManager->eventQueueLow.top()->timeStamp <= gameTime.getTime()){
+                    std::shared_ptr<Event> ev = eventManager->eventQueueLow.top();
+                    for(EventHandler* h : eventManager->handlers[ev->eventType]){
+                        h->onEvent(ev);
+                    }
+                    eventManager->eventQueueLow.pop();
+                }
+            }
+
+            lock.lock();
+
+
+            //send the server the current player position
+            if(thisPlayer->getPosition().x != prevX || thisPlayer->getPosition().y != prevY){
+                std::string playerPosString = std::to_string(thisPlayer->id) + " " + std::to_string(thisPlayer->getPosition().x) + " " + std::to_string(thisPlayer->getPosition().y);
+                zmq::message_t posMsg(playerPosString.length());
+                memcpy(posMsg.data(), playerPosString.c_str(), playerPosString.length());
+                playerPosPub.send(posMsg, zmq::send_flags::none);
+                prevX = thisPlayer->getPosition().x;
+                prevY = thisPlayer->getPosition().y;
+            }
+
+
+//---------------------------------------------------------------
 
             for(auto const& obj : gameObjects){
                 window.draw(*obj.second);
