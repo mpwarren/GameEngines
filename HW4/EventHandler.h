@@ -4,6 +4,7 @@
 #include "Event.h"
 #include <mutex>
 #include <zmq.hpp>
+#include "Timeline.h"
 
 class EventHandler{
     public:
@@ -17,10 +18,13 @@ class PlayerHandler : public EventHandler{
     public:
         PlayerHandler(std::mutex* m, std::map<int, CollidableObject*>* go);
         void onEvent(std::shared_ptr<Event> e) override;
-    
-    private:
-        //zmq::context_t * context;
-        //zmq::socket_t * playerPosPub;
+};
+
+class WorldHandler : public EventHandler{
+    public:
+        Timeline * gameTimeline;
+        WorldHandler(std::mutex* m, std::map<int, CollidableObject*>* go, Timeline * t);
+        void onEvent(std::shared_ptr<Event> e) override;
 };
 
 #endif

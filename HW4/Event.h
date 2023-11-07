@@ -68,5 +68,12 @@ class SpawnEvent : public Event{
         SpawnPoint * spawnPoint;
 };
 
+class AddOtherPlayerEvent : public Event{
+    public:
+        AddOtherPlayerEvent(int64_t ts, Priority p, std::string ps);
+        std::string toString() override;
+        std::string playerString;
+};
+
 
 #endif 

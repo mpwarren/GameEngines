@@ -74,7 +74,7 @@ void platformMovement(std::map<int, CollidableObject*>* gameObjects, Player* thi
 void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, std::vector<Player*>* players, int thisId){
     zmq::context_t context (1);
     zmq::socket_t recievePlayerPositionSocket (context, zmq::socket_type::sub);
-    recievePlayerPositionSocket.connect ("tcp://localhost:5557");
+    recievePlayerPositionSocket.connect ("tcp://localhost:5558");
     recievePlayerPositionSocket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
     while(true){
@@ -89,12 +89,41 @@ void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, std::v
             std::cout << "Recieved new position: " << positionUpdate.to_string() << std::endl;
             {
                 std::lock_guard<std::mutex> lock(dataMutex);
+                while(gameObjects->count(currentId) == 0){}
                 gameObjects->at(currentId)->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
             }
         }
 
         
     }    
+}
+
+//listen for events published by the server
+void eventListner(EventManager * em, Timeline * timeline){
+    zmq::context_t context(1);
+    zmq::socket_t eventListner(context, zmq::socket_type::sub);
+    eventListner.connect("tcp://localhost:5559");
+    eventListner.setsockopt(ZMQ_SUBSCRIBE, "", 0);
+
+    while(true){
+        zmq::message_t eventMessage;
+        eventListner.recv(eventMessage, zmq::recv_flags::none);
+
+        std::vector<std::string> params = parseMessage(eventMessage.to_string());
+
+        std::string playerString = "";
+        for(int i = 3; i <= 11; i++ ){
+            playerString += params[i] + " ";
+        }
+
+        if(stoi(params[0]) == (int)ADD_OTHER_PLAYER){
+            std::shared_ptr<AddOtherPlayerEvent> e = std::make_shared<AddOtherPlayerEvent>(timeline->getTime(), (Priority)stoi(params[2]), playerString);
+            std::cout << "ADDED NEW PLAYER EVENT TO QUEUE: " << e->toString() << std::endl;
+            em->addToQueue(e);
+        }
+    }
+
+
 }
 
 
@@ -195,10 +224,13 @@ int main(){
     //create event Handlers
     EventManager *eventManager = new EventManager();
     PlayerHandler * playerHandler = new PlayerHandler(&dataMutex, &gameObjects);
+    WorldHandler * worldHandler = new WorldHandler(&dataMutex, &gameObjects, &gameTime);
     eventManager->addHandler(std::vector<EventType>{INPUT_MOVEMENT, GRAVITY, COLLISION_EVENT, SPAWN_EVENT}, playerHandler);
+    eventManager->addHandler(std::vector<EventType>{ADD_OTHER_PLAYER}, worldHandler);
 
     std::thread platformThread(platformMovement, &gameObjects, thisPlayer);
     std::thread playerThread(playerPositionUpdates, &gameObjects, &players, thisId);
+    std::thread eventListnerThread(eventListner, eventManager, &gameTime);
     //std::thread heartbeatThread(heartbeat, thisId);
 
     //spawn the player
