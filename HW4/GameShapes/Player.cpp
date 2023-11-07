@@ -25,20 +25,6 @@ void Player::movePlayer(char key, int64_t frameDelta){
 
 bool Player::gravity(int64_t frameDelta){
     float velocity = 0.5;
-    // if(!jumping && !groundLevel){
-    //     move(0, velocity);
-    //     return true;
-    // }
-    // else if(jumping){
-    //     move(0, -1 * velocity);
-        
-    //     if(getPosition().y <= jumpPeak){
-    //         jumping = false;
-    //         jumpPeak = 0;
-    //     }
-    //     return true;
-    // }
-    // return false;
 
     if(jumping){
         move(0, -1 * velocity * frameDelta);

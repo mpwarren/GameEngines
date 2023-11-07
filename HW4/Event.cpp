@@ -31,3 +31,11 @@ CollisionEvent::CollisionEvent(int64_t ts, Priority p, int pId, int oId) : Event
 std::string CollisionEvent::toString(){
     return std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(playerId) + " " + std::to_string(otherId);
 }
+
+SpawnEvent::SpawnEvent(int64_t ts, Priority p, int tId, SpawnPoint * sp) : Event(ts, p), thisId{tId}, spawnPoint{sp} {
+    eventType = SPAWN_EVENT;
+}
+
+std::string SpawnEvent::toString(){
+    return std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(thisId);
+}

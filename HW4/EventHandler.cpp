@@ -22,7 +22,6 @@ void PlayerHandler::onEvent(std::shared_ptr<Event> e){
 
         if(inputEvent->key == 'W'){
             std::lock_guard<std::mutex> lock(*objMutex);
-            std::cout << "SET JUMPING\n";
             p->setJumping();
         }
         else if(inputEvent->key == 'A' || inputEvent->key == 'D'){
@@ -70,5 +69,13 @@ void PlayerHandler::onEvent(std::shared_ptr<Event> e){
         //memcpy(posMsg.data(), playerPosString.c_str(), playerPosString.length());
         //playerPosPub->send(posMsg, zmq::send_flags::none);
 
+    }
+    else if(e->eventType == SPAWN_EVENT){
+
+        std::lock_guard<std::mutex> lock(*objMutex);
+        std::shared_ptr<SpawnEvent> spawnEvent = std::dynamic_pointer_cast<SpawnEvent>(e);
+        Player* p = (Player*)gameObjects->at(spawnEvent->thisId);
+        
+        p->setPosition(spawnEvent->spawnPoint->getSpawnPoint());
     }
 }

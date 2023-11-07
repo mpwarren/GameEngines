@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include "GameShapes/Player.h"
+#include "SpawnPoint.h"
 
 //KEEP UNKNOWN AT THE BOTTOM, USED FOR ITERATION
 enum EventType{
@@ -57,6 +58,14 @@ class CollisionEvent : public Event{
         std::string toString() override;
         int playerId;
         int otherId;
+};
+
+class SpawnEvent : public Event{
+    public:
+        SpawnEvent(int64_t ts, Priority p, int tId, SpawnPoint * sp);
+        std::string toString() override;
+        int thisId;
+        SpawnPoint * spawnPoint;
 };
 
 

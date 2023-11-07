@@ -85,43 +85,16 @@ void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, std::v
         //std::cout <<"PLAYER MOVEMENT: " << positionUpdate.to_string() << std::endl;
 
         int currentId = stoi(words[0]);
-        std::cout << "Recieved new position: " << positionUpdate.to_string() << std::endl;
-        {
-            std::lock_guard<std::mutex> lock(dataMutex);
-            gameObjects->at(currentId)->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
+        if(currentId != thisId){
+            std::cout << "Recieved new position: " << positionUpdate.to_string() << std::endl;
+            {
+                std::lock_guard<std::mutex> lock(dataMutex);
+                gameObjects->at(currentId)->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
+            }
         }
+
         
     }    
-}
-
-void eventProcessor(EventManager * eventManager, Timeline* gameTimeline){
-    while(true)
-    {
-        //Process Events
-        std::lock_guard<std::mutex> lock(eventManager->mutex);
-        while(!eventManager->eventQueueHigh.empty() && eventManager->eventQueueHigh.top()->timeStamp <= gameTimeline->getTime()){
-            std::shared_ptr<Event> ev = eventManager->eventQueueHigh.top();
-            for(EventHandler* h : eventManager->handlers[ev->eventType]){
-                h->onEvent(ev);
-            }
-            eventManager->eventQueueHigh.pop();
-        }
-        while(!eventManager->eventQueueMedium.empty() && eventManager->eventQueueMedium.top()->timeStamp <= gameTimeline->getTime()){
-            std::shared_ptr<Event> ev = eventManager->eventQueueMedium.top();
-            for(EventHandler* h : eventManager->handlers[ev->eventType]){
-                h->onEvent(ev);
-            }
-            eventManager->eventQueueMedium.pop();
-        }
-        while(!eventManager->eventQueueLow.empty() && eventManager->eventQueueLow.top()->timeStamp <= gameTimeline->getTime()){
-             std::shared_ptr<Event> ev = eventManager->eventQueueLow.top();
-            for(EventHandler* h : eventManager->handlers[ev->eventType]){
-                h->onEvent(ev);
-            }
-            eventManager->eventQueueLow.pop();
-        }
-
-    }
 }
 
 
@@ -222,14 +195,14 @@ int main(){
     //create event Handlers
     EventManager *eventManager = new EventManager();
     PlayerHandler * playerHandler = new PlayerHandler(&dataMutex, &gameObjects);
-    eventManager->addHandler(std::vector<EventType>{INPUT_MOVEMENT, GRAVITY, COLLISION_EVENT}, playerHandler);
+    eventManager->addHandler(std::vector<EventType>{INPUT_MOVEMENT, GRAVITY, COLLISION_EVENT, SPAWN_EVENT}, playerHandler);
 
     std::thread platformThread(platformMovement, &gameObjects, thisPlayer);
     std::thread playerThread(playerPositionUpdates, &gameObjects, &players, thisId);
-    //std::thread eventProcessorThread(eventProcessor, eventManager, &gameTime);
     //std::thread heartbeatThread(heartbeat, thisId);
 
-
+    //spawn the player
+    eventManager->addToQueue(std::make_shared<SpawnEvent>(0, HIGH, thisId, &sp));
 
         
     float prevX = 0;
