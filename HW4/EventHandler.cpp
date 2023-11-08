@@ -109,8 +109,15 @@ void WorldHandler::onEvent(std::shared_ptr<Event> e){
         std::cout << "TRANSLATION EVENT: " << translationEvent->toString() << std::endl;
         std::lock_guard<std::mutex> lock(*objMutex);
         for(auto const& obj : *gameObjects){
+            if(obj.second->objId == PLAYER_ID){
+                 std::cout << "Before translate Player Position: " << std::to_string(obj.second->getPosition().x) << ", " << std::to_string(obj.second->getPosition().y) << std::endl;
+            }
             if(obj.first != 1 and obj.first != translationEvent->playerId){
                 obj.second->translate(translationEvent->direction, translationEvent->frameDelta);
+                if(obj.second->objId == PLAYER_ID){
+                    std::cout << "Translating player: " << std::to_string(obj.second->id) << std::endl;
+                    std::cout << "Player Position: " << std::to_string(obj.second->getPosition().x) << ", " << std::to_string(obj.second->getPosition().y) << std::endl;
+                }
             }
         }
     }

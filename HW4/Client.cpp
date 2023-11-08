@@ -344,7 +344,7 @@ int main(){
                 }
 
                 if(shouldTranslate){
-                    std::cout << "SENDING TRANSLATE EVENT\n";
+                    //std::cout << "SENDING TRANSLATE EVENT\n";
                     std::string translationEventString = std::to_string(TRANSLATE) + " 0 " + std::to_string(HIGH) + " " + direction + " " + std::to_string(thisId) + " " + std::to_string(frameDelta);
                     zmq::message_t translationMessage(translationEventString.length());
                     memcpy(translationMessage.data(), translationEventString.c_str(), translationEventString.length());

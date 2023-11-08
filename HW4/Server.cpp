@@ -140,7 +140,7 @@ void EventPublisher(EventManager *em, Timeline* timeline){
             em->addToQueue(e);
         }
         else if(t == TRANSLATE){
-            std::cout << "ADDING TRANSLATE TO QUEUE\n";
+            //std::cout << "ADDING TRANSLATE TO QUEUE\n";
             std::shared_ptr<TranslationEvent> e = std::make_shared<TranslationEvent>(timeline->getTime(), (Priority)stoi(params[2]), params[3][0], stoi(params[4]), stoi(params[5]));
             em->addToQueue(e);
         }
