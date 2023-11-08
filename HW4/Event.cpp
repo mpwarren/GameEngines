@@ -71,3 +71,11 @@ TranslationEvent::TranslationEvent(int64_t ts, Priority p, char dir, int pId, in
 std::string TranslationEvent::toString(){
     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + direction + " " + std::to_string(playerId) + " " + std::to_string(frameDelta);
 }
+
+RemovePlayerEvent::RemovePlayerEvent(int64_t ts, Priority p, int pId) : Event(ts, p), playerId{pId} {
+    eventType = REMOVE_PLAYER;
+}
+
+std::string RemovePlayerEvent::toString(){
+    return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(playerId);
+}

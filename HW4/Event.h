@@ -98,6 +98,15 @@ class TranslationEvent : public Event{
         int64_t frameDelta;
 };
 
+class RemovePlayerEvent : public Event{
+    public:
+        RemovePlayerEvent(int64_t ts, Priority p, int pId);
+        std::string toString() override;
+        char direction;
+        int playerId;
+        int64_t frameDelta;
+};
+
 
 
 

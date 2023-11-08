@@ -8,7 +8,9 @@ std::vector<std::string> parseEventMessage(std::string strToParse){
 }
 
 EventHandler::EventHandler(std::mutex* m, std::map<int, CollidableObject*>* go) : objMutex{m}, gameObjects{go} {
-
+    context = new zmq::context_t(1);
+    serverEventSender = new zmq::socket_t(*context, zmq::socket_type::push);
+    serverEventSender->connect("tcp://localhost:5560");
 }
 
 void EventHandler::onEvent(std::shared_ptr<Event> e){
@@ -35,12 +37,23 @@ void PlayerHandler::onEvent(std::shared_ptr<Event> e){
                 p->movePlayer(inputEvent->key, inputEvent->frameDelta);
             }
         }
+
+        std::string playerPosEvent = std::to_string((int)MOVE_PLAYER_EVENT) + " " + std::to_string((int)MEDIUM) + " " + std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
+        zmq::message_t posMsg(playerPosEvent.length());
+        memcpy(posMsg.data(), playerPosEvent.c_str(), playerPosEvent.length());
+        serverEventSender->send(posMsg, zmq::send_flags::none);
     }
     else if(e->eventType == GRAVITY){
         std::shared_ptr<GravityEvent> gravityEvent = std::dynamic_pointer_cast<GravityEvent>(e);
         {
             std::lock_guard<std::mutex> lock(*objMutex);
             Player* p = (Player*)gameObjects->at(gravityEvent->thisId);
+            if(p->gravity(1)){
+                std::string playerPosEvent = std::to_string((int)MOVE_PLAYER_EVENT) + " " + std::to_string((int)MEDIUM) + " " + std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
+                zmq::message_t posMsg(playerPosEvent.length());
+                memcpy(posMsg.data(), playerPosEvent.c_str(), playerPosEvent.length());
+                serverEventSender->send(posMsg, zmq::send_flags::none);
+            }
         }
     }
     else if(e->eventType == COLLISION_EVENT){
@@ -51,10 +64,18 @@ void PlayerHandler::onEvent(std::shared_ptr<Event> e){
             CollidableObject* co = gameObjects->at(collisionEvent->otherId);
 
             if(co->objId == DEATH_ZONE_ID){
-
+                std::shared_ptr<DeathEvent> e = std::make_shared<DeathEvent>(0, LOW);
+                std::string deathEventString = e->toString();
+                zmq::message_t deathMsg(deathEventString.length());
+                memcpy(deathMsg.data(), deathEventString.c_str(), deathEventString.length());
+                serverEventSender->send(deathMsg, zmq::send_flags::none);
             }
             else{
                 p->setIsCollidingUnder(p->resolveColision(co));
+                std::string playerPosEvent = std::to_string((int)MOVE_PLAYER_EVENT) + " " + std::to_string((int)MEDIUM) + " " + std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
+                zmq::message_t posMsg(playerPosEvent.length());
+                memcpy(posMsg.data(), playerPosEvent.c_str(), playerPosEvent.length());
+                serverEventSender->send(posMsg, zmq::send_flags::none);
             }
             
         }
@@ -72,11 +93,11 @@ void PlayerHandler::onEvent(std::shared_ptr<Event> e){
 }
 
 
-WorldHandler::WorldHandler(std::mutex* m, std::map<int, CollidableObject*>* go, Timeline * t) : EventHandler(m, go), gameTimeline{t}{
+ServerWorldHandler::ServerWorldHandler(std::mutex* m, std::map<int, CollidableObject*>* go, Timeline * t) : EventHandler(m, go), gameTimeline{t}{
 
 }
 
-void WorldHandler::onEvent(std::shared_ptr<Event> e){
+void ServerWorldHandler::onEvent(std::shared_ptr<Event> e){
     if(e->eventType == ADD_OTHER_PLAYER){
         std::shared_ptr<AddOtherPlayerEvent> addPlayerEvent = std::dynamic_pointer_cast<AddOtherPlayerEvent>(e);
         std::vector<std::string> params = parseEventMessage(addPlayerEvent->playerString);
@@ -106,22 +127,68 @@ void WorldHandler::onEvent(std::shared_ptr<Event> e){
     }
     else if(e->eventType == TRANSLATE){
         std::shared_ptr<TranslationEvent> translationEvent = std::dynamic_pointer_cast<TranslationEvent>(e);
-        std::cout << "TRANSLATION EVENT: " << translationEvent->toString() << std::endl;
         std::lock_guard<std::mutex> lock(*objMutex);
         for(auto const& obj : *gameObjects){
-            if(obj.second->objId == PLAYER_ID){
-                 std::cout << "Before translate Player Position: " << std::to_string(obj.second->getPosition().x) << ", " << std::to_string(obj.second->getPosition().y) << std::endl;
-            }
-            if(obj.first != 1 and obj.first != translationEvent->playerId){
+            if(obj.first != 1 && obj.second->objId != PLAYER_ID){
                 obj.second->translate(translationEvent->direction, translationEvent->frameDelta);
-                if(obj.second->objId == PLAYER_ID){
-                    std::cout << "Translating player: " << std::to_string(obj.second->id) << std::endl;
-                    std::cout << "Player Position: " << std::to_string(obj.second->getPosition().x) << ", " << std::to_string(obj.second->getPosition().y) << std::endl;
-                }
+
             }
         }
+    }
+    else if(e->eventType == REMOVE_PLAYER){
+        std::shared_ptr<RemovePlayerEvent> removePlayerEvent = std::dynamic_pointer_cast<RemovePlayerEvent>(e);
+        std::lock_guard<std::mutex> lock(*objMutex);
+        Player * p = (Player*)gameObjects->at(removePlayerEvent->playerId);
+        gameObjects->erase(removePlayerEvent->playerId);
+        delete p;
+
     }
     else{
         std::cout << "ERROR: unknown event sent to world handler\n";
     }
 }
+
+
+ClientWorldHandler::ClientWorldHandler(std::mutex* m, std::map<int, CollidableObject*>* go, Timeline * t, int id) : EventHandler(m, go), gameTimeline{t}, clientId{id}{
+
+}
+
+void ClientWorldHandler::onEvent(std::shared_ptr<Event> e){
+    if(e->eventType == ADD_OTHER_PLAYER){
+        std::shared_ptr<AddOtherPlayerEvent> addPlayerEvent = std::dynamic_pointer_cast<AddOtherPlayerEvent>(e);
+        std::vector<std::string> params = parseEventMessage(addPlayerEvent->playerString);
+        Player * p = new Player(stoi(params[1]), sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
+        {
+            std::lock_guard<std::mutex> lock(*objMutex);
+            if(gameObjects->count(p->id) != 1){
+                gameObjects->insert({p->id, p});
+                std::cout<< "new player added " << std::endl;
+            }
+        }
+    }
+    else if(e->eventType == DEATH_EVENT){
+        std::lock_guard<std::mutex> lock(*objMutex);
+        gameObjects->at(clientId)->reset();
+    }
+    else if(e->eventType == TRANSLATE){
+        std::shared_ptr<TranslationEvent> translateEvent = std::dynamic_pointer_cast<TranslationEvent>(e);
+        //if we are not the player that moved it, translate
+        if(clientId != translateEvent->playerId){
+            Player * p = (Player*)gameObjects->at(clientId);
+            p->translate(translateEvent->direction, translateEvent->frameDelta);
+            std::string playerPosEvent = std::to_string((int)MOVE_PLAYER_EVENT) + " " + std::to_string((int)MEDIUM) + " " + std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
+            zmq::message_t posMsg(playerPosEvent.length());
+            memcpy(posMsg.data(), playerPosEvent.c_str(), playerPosEvent.length());
+            serverEventSender->send(posMsg, zmq::send_flags::none);
+        }
+    }
+    else if(e->eventType == REMOVE_PLAYER){
+        std::shared_ptr<RemovePlayerEvent> removePlayerEvent = std::dynamic_pointer_cast<RemovePlayerEvent>(e);
+        std::lock_guard<std::mutex> lock(*objMutex);
+        Player * p = (Player*)gameObjects->at(removePlayerEvent->playerId);
+        gameObjects->erase(removePlayerEvent->playerId);
+        delete p;
+
+    }
+}
+

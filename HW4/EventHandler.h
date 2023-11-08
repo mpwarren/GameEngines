@@ -12,6 +12,8 @@ class EventHandler{
         std::map<int, CollidableObject*>* gameObjects;
         EventHandler(std::mutex* m, std::map<int, CollidableObject*>* go);
         virtual void onEvent(std::shared_ptr<Event> e);
+        zmq::context_t* context;
+        zmq::socket_t* serverEventSender;
 };
 
 class PlayerHandler : public EventHandler{
@@ -20,11 +22,20 @@ class PlayerHandler : public EventHandler{
         void onEvent(std::shared_ptr<Event> e) override;
 };
 
-class WorldHandler : public EventHandler{
+class ServerWorldHandler : public EventHandler{
     public:
         Timeline * gameTimeline;
-        WorldHandler(std::mutex* m, std::map<int, CollidableObject*>* go, Timeline * t);
+        ServerWorldHandler(std::mutex* m, std::map<int, CollidableObject*>* go, Timeline * t);
         void onEvent(std::shared_ptr<Event> e) override;
+};
+
+class ClientWorldHandler : public EventHandler{
+    public:
+        Timeline * gameTimeline;
+        ClientWorldHandler(std::mutex* m, std::map<int, CollidableObject*>* go, Timeline * t, int id);
+        void onEvent(std::shared_ptr<Event> e) override;
+        int clientId;
+
 };
 
 #endif

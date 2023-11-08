@@ -21,16 +21,16 @@ std::vector<std::string> parseMessage(std::string strToParse){
     return words;
 }
 
-/*
+
 void heartbeat(){
     //Initalize socket
     zmq::context_t context(1);
 
-    zmq::socket_t heartbeatSocket(context, zmq::socket_type::rep);
-    heartbeatSocket.bind("tcp://*:5559");
+    zmq::socket_t heartbeatSocket(context, zmq::socket_type::pull);
+    heartbeatSocket.bind("tcp://*:5561");
 
-    zmq::socket_t deletePlayerSocket (context, zmq::socket_type::req);
-    deletePlayerSocket.connect ("tcp://localhost:5556");
+    zmq::socket_t eventSender (context, zmq::socket_type::push);
+    eventSender.connect ("tcp://localhost:5560");
 
     std::map<int, int64_t> lastBeatTime;
 
@@ -42,19 +42,16 @@ void heartbeat(){
         if(beatMessage.to_string().length() > 0){
             int id = stoi(beatMessage.to_string());
             lastBeatTime[id] = beatTimeline.getTime();
-            heartbeatSocket.send(zmq::message_t(), zmq::send_flags::none);
         }
 
         for(auto const& obj : lastBeatTime){
             int64_t currentTime = beatTimeline.getTime();
-            if(currentTime - obj.second > 5000){
+            if(currentTime - obj.second > 2500){
                 //send message to delete player on all clients
-                std::string deleteStr = DELETE_SIGN + " " + std::to_string(obj.first);
+                std::string deleteStr = std::to_string(REMOVE_PLAYER) + " 0 " + std::to_string(LOW) + " " + std::to_string(obj.first);
                 zmq::message_t deletePlayerMessage(deleteStr.length());
                 memcpy(deletePlayerMessage.data(), deleteStr.c_str(), deleteStr.length());
-                deletePlayerSocket.send(deletePlayerMessage, zmq::send_flags::none);
-                zmq::message_t recvMsg(0);
-                deletePlayerSocket.recv(recvMsg, zmq::recv_flags::none);
+                eventSender.send(deletePlayerMessage, zmq::send_flags::none);
 
                 //erase from this map
                 lastBeatTime.erase(obj.first);
@@ -67,7 +64,7 @@ void heartbeat(){
 
 
 }
-*/
+
 
 void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gameObjects, SpawnPoint * sp){
         //Initalize socket
@@ -92,10 +89,23 @@ void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gam
         lastTime = currentTime;
         if(frameDelta != 0){
             std::lock_guard<std::mutex> lock(dataMutex);
-            for(MovingPlatform* obj : movingPlatforms){
-                obj->movePosition(frameDelta);
+            // for(MovingPlatform* obj : movingPlatforms){
+            //     obj->movePosition(frameDelta);
 
-                std::string platformPositionStr = std::to_string(obj->id) + " " + std::to_string(obj->getPosition().x) + " " + std::to_string(obj->getPosition().y) + "\0";
+            //     std::string platformPositionStr = std::to_string(obj->id) + " " + std::to_string(obj->getPosition().x) + " " + std::to_string(obj->getPosition().y) + "\0";
+            //     zmq::message_t posMessage(platformPositionStr.length());
+            //     memcpy(posMessage.data(), platformPositionStr.c_str(), platformPositionStr.length());
+            //     platformMovementSocket.send(posMessage, zmq::send_flags::none);
+
+            // }
+
+            for(auto const& obj : *gameObjects){
+                
+                if(obj.second->objId == MOVING_PLATFORM_ID){
+                    MovingPlatform* mp = (MovingPlatform*)obj.second;
+                    mp->movePosition(frameDelta);
+                }
+                std::string platformPositionStr = std::to_string(obj.second->id) + " " + std::to_string(obj.second->getPosition().x) + " " + std::to_string(obj.second->getPosition().y) + "\0";
                 zmq::message_t posMessage(platformPositionStr.length());
                 memcpy(posMessage.data(), platformPositionStr.c_str(), platformPositionStr.length());
                 platformMovementSocket.send(posMessage, zmq::send_flags::none);
@@ -130,23 +140,31 @@ void EventPublisher(EventManager *em, Timeline* timeline){
             //std::cout << "PLAYER STRING: " << playerString << std::flush;
             std::shared_ptr<AddOtherPlayerEvent> e = std::make_shared<AddOtherPlayerEvent>(timeline->getTime(), (Priority)stoi(params[2]), playerString);
             em->addToQueue(e);
+            eventPublisher.send(eventMessage, zmq::send_flags::none);
         }
         else if(t == MOVE_PLAYER_EVENT){
             std::shared_ptr<UpdatePlayerPositionEvent> e = std::make_shared<UpdatePlayerPositionEvent>(timeline->getTime(), (Priority)stoi(params[1]), stoi(params[2]), stof(params[3]), stof(params[4]));
             em->addToQueue(e);
+            //eventPublisher.send(eventMessage, zmq::send_flags::none);
+
         }
         else if(t == DEATH_EVENT){
             std::shared_ptr<DeathEvent> e = std::make_shared<DeathEvent>(timeline->getTime(), (Priority)stoi(params[2]));
             em->addToQueue(e);
+            eventPublisher.send(eventMessage, zmq::send_flags::none);
+
         }
         else if(t == TRANSLATE){
             //std::cout << "ADDING TRANSLATE TO QUEUE\n";
             std::shared_ptr<TranslationEvent> e = std::make_shared<TranslationEvent>(timeline->getTime(), (Priority)stoi(params[2]), params[3][0], stoi(params[4]), stoi(params[5]));
             em->addToQueue(e);
+            eventPublisher.send(eventMessage, zmq::send_flags::none);
         }
-
-        //send it to clients
-        eventPublisher.send(eventMessage, zmq::send_flags::none);
+        else if(t == REMOVE_PLAYER){
+            std::shared_ptr<RemovePlayerEvent> e = std::make_shared<RemovePlayerEvent>(timeline->getTime(), (Priority)stoi(params[2]),stoi(params[3]));
+            em->addToQueue(e);
+            eventPublisher.send(eventMessage, zmq::send_flags::none);
+        }
     }
 }
 
@@ -293,12 +311,12 @@ int main(){
 
     //create event Handlers
     EventManager *eventManager = new EventManager();
-    WorldHandler * worldHandler = new WorldHandler(&dataMutex, &gameObjects, &gameTimeline);
-    eventManager->addHandler(std::vector<EventType>{MOVE_PLAYER_EVENT, ADD_OTHER_PLAYER, DEATH_EVENT, TRANSLATE}, worldHandler);
+    ServerWorldHandler * worldHandler = new ServerWorldHandler(&dataMutex, &gameObjects, &gameTimeline);
+    eventManager->addHandler(std::vector<EventType>{MOVE_PLAYER_EVENT, ADD_OTHER_PLAYER, DEATH_EVENT, TRANSLATE, REMOVE_PLAYER}, worldHandler);
 
     //start threads
     std::thread platformThread(movePlatforms, &gameTimeline, &gameObjects, &sp);
-    //std::thread heartbeatThread(heartbeat);
+    std::thread heartbeatThread(heartbeat);
     std::thread newPlayerThread(newPlayerFunction, id, &gameObjects, &sp);
     //std::thread eventListnerThread(eventListnerFunction, eventManager, &gameTimeline);
     std::thread eventPublisherThread(EventPublisher, eventManager, &gameTimeline);
