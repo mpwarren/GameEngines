@@ -74,10 +74,10 @@ std::string CollidableObject::toString(){
         " " + std::to_string(startingPoint.y) + " " + classTexturePath;
 }
 
-void CollidableObject::translate(std::string dir, int64_t frameDelta){
-    float velocity = 0.5;
+void CollidableObject::translate(char dir, int64_t frameDelta){
+    float velocity = 1;
     float distMoved = velocity * frameDelta;
-    if(dir == TRANSFORM_LEFT){
+    if(dir == 'L'){
         setPosition(getPosition().x - distMoved , getPosition().y);
     }
     else{

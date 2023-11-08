@@ -10,7 +10,7 @@ Player::Player(int id, sf::Vector2f size, sf::Vector2f position, sf::Vector2f st
 void Player::movePlayer(char key, int64_t frameDelta){
     float xDir;
 
-    float velocity = 0.5;
+    float velocity = 1;
 
     if(key == 'A'){
         xDir = -1 * velocity * frameDelta;

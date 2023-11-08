@@ -117,7 +117,7 @@ void EventPublisher(EventManager *em, Timeline* timeline){
     while(true){
         zmq::message_t eventMessage;
         serverEventListner.recv(eventMessage, zmq::recv_flags::none);
-        //std::cout << "PRE PLAYER STRING: " << eventMessage.to_string() << std::flush;
+        //std::cout << "Event: " << eventMessage.to_string() << std::endl;
 
         //add it to server event manager
         std::vector<std::string> params = parseMessage(eventMessage.to_string());
@@ -136,7 +136,12 @@ void EventPublisher(EventManager *em, Timeline* timeline){
             em->addToQueue(e);
         }
         else if(t == DEATH_EVENT){
-            std::shared_ptr<DeathEvent> e = std::make_shared<DeathEvent>(timeline->getTime(), (Priority)stoi(params[1]));
+            std::shared_ptr<DeathEvent> e = std::make_shared<DeathEvent>(timeline->getTime(), (Priority)stoi(params[2]));
+            em->addToQueue(e);
+        }
+        else if(t == TRANSLATE){
+            std::cout << "ADDING TRANSLATE TO QUEUE\n";
+            std::shared_ptr<TranslationEvent> e = std::make_shared<TranslationEvent>(timeline->getTime(), (Priority)stoi(params[2]), params[3][0], stoi(params[4]), stoi(params[5]));
             em->addToQueue(e);
         }
 
@@ -289,7 +294,7 @@ int main(){
     //create event Handlers
     EventManager *eventManager = new EventManager();
     WorldHandler * worldHandler = new WorldHandler(&dataMutex, &gameObjects, &gameTimeline);
-    eventManager->addHandler(std::vector<EventType>{MOVE_PLAYER_EVENT, ADD_OTHER_PLAYER, DEATH_EVENT}, worldHandler);
+    eventManager->addHandler(std::vector<EventType>{MOVE_PLAYER_EVENT, ADD_OTHER_PLAYER, DEATH_EVENT, TRANSLATE}, worldHandler);
 
     //start threads
     std::thread platformThread(movePlatforms, &gameTimeline, &gameObjects, &sp);

@@ -71,34 +71,34 @@ void platformMovement(std::map<int, CollidableObject*>* gameObjects, Player* thi
 }
 
 
-void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, std::vector<Player*>* players, int thisId){
-    zmq::context_t context (1);
-    zmq::socket_t recievePlayerPositionSocket (context, zmq::socket_type::sub);
-    recievePlayerPositionSocket.connect ("tcp://localhost:5558");
-    recievePlayerPositionSocket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
+// void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, std::vector<Player*>* players, int thisId){
+//     zmq::context_t context (1);
+//     zmq::socket_t recievePlayerPositionSocket (context, zmq::socket_type::sub);
+//     recievePlayerPositionSocket.connect ("tcp://localhost:5558");
+//     recievePlayerPositionSocket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
-    while(true){
-        zmq::message_t positionUpdate;
-        recievePlayerPositionSocket.recv(positionUpdate, zmq::recv_flags::none);
-        std::vector<std::string> words = parseMessage(positionUpdate.to_string());
+//     while(true){
+//         zmq::message_t positionUpdate;
+//         recievePlayerPositionSocket.recv(positionUpdate, zmq::recv_flags::none);
+//         std::vector<std::string> words = parseMessage(positionUpdate.to_string());
         
-        //std::cout <<"PLAYER MOVEMENT: " << positionUpdate.to_string() << std::endl;
+//         //std::cout <<"PLAYER MOVEMENT: " << positionUpdate.to_string() << std::endl;
 
-        int currentId = stoi(words[0]);
-        if(currentId != thisId){
-            std::cout << "Recieved new position: " << positionUpdate.to_string() << std::endl;
-            {
-                std::lock_guard<std::mutex> lock(dataMutex);
-                if(gameObjects->count(currentId) != 0){
-                    std::cout << "SETTING POSITION\n";
-                    gameObjects->at(currentId)->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
-                }
-            }
-        }
+//         int currentId = stoi(words[0]);
+//         if(currentId != thisId){
+//             std::cout << "Recieved new position: " << positionUpdate.to_string() << std::endl;
+//             {
+//                 std::lock_guard<std::mutex> lock(dataMutex);
+//                 if(gameObjects->count(currentId) != 0){
+//                     std::cout << "SETTING POSITION\n";
+//                     gameObjects->at(currentId)->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
+//                 }
+//             }
+//         }
 
         
-    }    
-}
+//     }    
+// }
 
 //listen for events published by the server
 void eventListner(EventManager * em, Timeline * timeline){
@@ -115,7 +115,9 @@ void eventListner(EventManager * em, Timeline * timeline){
 
         std::vector<std::string> params = parseMessage(eventMessage.to_string());
 
-        if(stoi(params[0]) == (int)ADD_OTHER_PLAYER){
+        EventType t = (EventType)stoi(params[0]);
+
+        if(t == ADD_OTHER_PLAYER){
 
             std::string playerString = "";
             for(int i = 3; i <= 11; i++ ){
@@ -126,8 +128,12 @@ void eventListner(EventManager * em, Timeline * timeline){
             //std::cout << "ADDED NEW PLAYER EVENT TO QUEUE: " << e->toString() << std::endl;
             em->addToQueue(e);
         }
-        else if(stoi(params[0]) == (int)MOVE_PLAYER_EVENT){
+        else if(t == MOVE_PLAYER_EVENT){
             std::shared_ptr<UpdatePlayerPositionEvent> e = std::make_shared<UpdatePlayerPositionEvent>(timeline->getTime(), (Priority)stoi(params[1]), stoi(params[2]), stof(params[3]), stof(params[4]));
+            em->addToQueue(e);
+        }
+        else if(t == TRANSLATE){
+            std::shared_ptr<TranslationEvent> e = std::make_shared<TranslationEvent>(timeline->getTime(), (Priority)stoi(params[2]), params[3][0], stoi(params[4]), stoi(params[5]));
             em->addToQueue(e);
         }
     }
@@ -144,7 +150,7 @@ int main(){
     std::map<int, CollidableObject*> gameObjects;
     std::vector<CollidableObject*> collidableObjects;
     std::vector<DeathZone*> deathZones;
-    std::vector<Player*> players;
+    std::vector<Player*> otherPlayers;
 
     //Connect to server
     zmq::context_t context (3);
@@ -190,7 +196,9 @@ int main(){
         else if(params[0] == PLAYER_ID){
             int id = stoi(params[1]);
             gameObjects[id] = new Player(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
-            players.push_back((Player*)gameObjects[id]);
+            if(id != thisId){
+                otherPlayers.push_back((Player*)gameObjects[id]);
+            }
         }
         else if(params[0] == SPAWN_POINT_ID){
             sp = SpawnPoint(sf::Vector2f(stof(params[1]), stof(params[2])), sf::Vector2f(stof(params[3]), stof(params[4])));
@@ -216,12 +224,9 @@ int main(){
     sf::RenderWindow window(sf::VideoMode(SCENE_WIDTH, SCENE_HEIGHT), "My Window", sf::Style::Default);
 
     //generate side boundry
-    // std::vector<SideBoundry*> boundaries;
-    // int distanceFromEdge = 50;
-    // SideBoundry* boundry1 = new SideBoundry(100, sf::Vector2f(SCENE_WIDTH - distanceFromEdge , -50), sf::Vector2f(SCENE_WIDTH - distanceFromEdge , -50), RIGHT_SIDE);
-    // boundaries.push_back(boundry1);
-    // SideBoundry* boundry2 = new SideBoundry(101, sf::Vector2f(distanceFromEdge, -50), sf::Vector2f(distanceFromEdge, -50), LEFT_SIDE);
-    // boundaries.push_back(boundry2);
+    int distanceFromEdge = 50;
+    SideBoundry* rightBoundry = new SideBoundry(100, sf::Vector2f(SCENE_WIDTH - distanceFromEdge , -50), sf::Vector2f(SCENE_WIDTH - distanceFromEdge , -50), RIGHT_SIDE);
+    SideBoundry* leftBoundry = new SideBoundry(101, sf::Vector2f(distanceFromEdge, -50), sf::Vector2f(distanceFromEdge, -50), LEFT_SIDE);
 
     Timeline anchorTimeline;
     Timeline gameTime(&anchorTimeline);
@@ -232,10 +237,10 @@ int main(){
     PlayerHandler * playerHandler = new PlayerHandler(&dataMutex, &gameObjects);
     WorldHandler * worldHandler = new WorldHandler(&dataMutex, &gameObjects, &gameTime);
     eventManager->addHandler(std::vector<EventType>{INPUT_MOVEMENT, GRAVITY, COLLISION_EVENT, SPAWN_EVENT}, playerHandler);
-    eventManager->addHandler(std::vector<EventType>{ADD_OTHER_PLAYER, MOVE_PLAYER_EVENT, DEATH_EVENT}, worldHandler);
+    eventManager->addHandler(std::vector<EventType>{ADD_OTHER_PLAYER, MOVE_PLAYER_EVENT, DEATH_EVENT, TRANSLATE}, worldHandler);
 
     std::thread platformThread(platformMovement, &gameObjects, thisPlayer);
-    std::thread playerThread(playerPositionUpdates, &gameObjects, &players, thisId);
+    //std::thread playerThread(playerPositionUpdates, &gameObjects, &players, thisId);
     std::thread eventListnerThread(eventListner, eventManager, &gameTime);
     //std::thread heartbeatThread(heartbeat, thisId);
 
@@ -259,18 +264,6 @@ int main(){
             if(event.type == sf::Event::KeyPressed){
                 if(event.key.code == sf::Keyboard::P){
                     //PAUSING CODE HERE
-                }
-                if(event.key.code == sf::Keyboard::Z){
-                    gameTime.changeTic(TIC_HALF);
-                    lastTime = gameTime.getTime();
-                }
-                if(event.key.code == sf::Keyboard::X){
-                    gameTime.changeTic(TIC_NORMAL);
-                    lastTime = gameTime.getTime();
-                }
-                if(event.key.code == sf::Keyboard::C){
-                    gameTime.changeTic(TIC_TWO_TIMES);
-                    lastTime = gameTime.getTime();
                 }
             }
         }
@@ -302,13 +295,13 @@ int main(){
             std::unique_lock<std::mutex> lock(dataMutex);
 
             if(thisPlayer->gravity(frameDelta)){
+                //lock.unlock();
                 std::shared_ptr<GravityEvent> e = std::make_shared<GravityEvent>(currentTime, HIGH, thisId);
-                lock.unlock();
                 eventManager->addToQueue(e);
-                lock.lock();
             }
 
             bool died = false;
+            //lock.lock();
             for(DeathZone * dz : deathZones){
                 if(thisPlayer->checkCollision(dz)){
                     std::shared_ptr<DeathEvent> e = std::make_shared<DeathEvent>(currentTime, LOW);
@@ -323,14 +316,50 @@ int main(){
             }
 
             if(!died){
+
+                //check for translation
+                bool shouldTranslate = false;
+                char direction;
+                if(thisPlayer->checkCollision(leftBoundry)){
+                    thisPlayer->resolveColision(leftBoundry);
+                    shouldTranslate = true;
+                    direction = 'R';
+                    for(Player * p : otherPlayers){
+                        if(p->getPosition().x + p->getSize().x >= rightBoundry->getPosition().x){
+                            shouldTranslate = false;
+                            break;
+                        }
+                    }
+                }
+                else if(thisPlayer->checkCollision(rightBoundry)){
+                    thisPlayer->resolveColision(rightBoundry);
+                    shouldTranslate = true;
+                    direction = 'L';
+                    for(Player * p : otherPlayers){
+                        if(p->getPosition().x <= leftBoundry->getPosition().x + 1){
+                            shouldTranslate = false;
+                            break;
+                        }
+                    }
+                }
+
+                if(shouldTranslate){
+                    std::cout << "SENDING TRANSLATE EVENT\n";
+                    std::string translationEventString = std::to_string(TRANSLATE) + " 0 " + std::to_string(HIGH) + " " + direction + " " + std::to_string(thisId) + " " + std::to_string(frameDelta);
+                    zmq::message_t translationMessage(translationEventString.length());
+                    memcpy(translationMessage.data(), translationEventString.c_str(), translationEventString.length());
+                    eventSender.send(translationMessage, zmq::send_flags::none);
+                }
+
+
                 bool collided = false;
                 for(CollidableObject * co : collidableObjects){
                     if(thisPlayer->checkCollision(co)){
                         std::shared_ptr<CollisionEvent> e = std::make_shared<CollisionEvent>(currentTime, MEDIUM, thisId, co->id);
-                        lock.unlock();
+                        //lock.unlock();
                         collided = true;
                         eventManager->addToQueue(e);
-                        lock.lock();
+                        //lock.lock();
                     }
                 }
                 thisPlayer->setColliding(collided);
@@ -375,11 +404,12 @@ int main(){
             //send the server the current player position
             if(thisPlayer->getPosition().x != prevX || thisPlayer->getPosition().y != prevY){
                 std::string playerPosEvent = std::to_string((int)MOVE_PLAYER_EVENT) + " " + std::to_string((int)MEDIUM) + " " + std::to_string(thisPlayer->id) + " " + std::to_string(thisPlayer->getPosition().x) + " " + std::to_string(thisPlayer->getPosition().y);
+                prevX = thisPlayer->getPosition().x;
+                prevY = thisPlayer->getPosition().y;
                 zmq::message_t posMsg(playerPosEvent.length());
                 memcpy(posMsg.data(), playerPosEvent.c_str(), playerPosEvent.length());
                 eventSender.send(posMsg, zmq::send_flags::none);
-                prevX = thisPlayer->getPosition().x;
-                prevY = thisPlayer->getPosition().y;
+
             }
 
 
@@ -388,6 +418,7 @@ int main(){
             for(auto const& obj : gameObjects){
                 window.draw(*obj.second);
             }
+            //lock.unlock();
         }
 
         window.display();

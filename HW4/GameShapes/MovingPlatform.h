@@ -16,7 +16,7 @@ class MovingPlatform : public Platform{
         MovingPlatform(int id, sf::Vector2f size, sf::Vector2f position, sf::Vector2f startingPosition, std::string texturePath, Direction dir, float v, int dist);
         void movePosition(int64_t frameDelta);
         std::string toString() override;
-        void translate(std::string dir, int64_t frameDelta) override;
+        void translate(char dir, int64_t frameDelta) override;
         void reset() override;
         void setEndPoint();
 

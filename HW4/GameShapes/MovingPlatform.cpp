@@ -34,9 +34,9 @@ std::string MovingPlatform::toString(){
         " " + std::to_string(velocity) + " " + std::to_string(distance);
 }
 
-void MovingPlatform::translate(std::string dir, int64_t frameDelta){
+void MovingPlatform::translate(char dir, int64_t frameDelta){
     float distMoved = velocity * frameDelta;
-    if(dir == TRANSFORM_LEFT){
+    if(dir == 'L'){
         startPoint.x = startPoint.x - distMoved;
         endPoint.x = endPoint.x - distMoved;
         setPosition(getPosition().x - distMoved , getPosition().y);

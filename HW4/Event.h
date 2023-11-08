@@ -12,8 +12,7 @@ enum EventType{
     DEATH_EVENT,
     INPUT_MOVEMENT,
     INPUT_OTHER,
-    TRANSLATE_LEFT,
-    TRANSLATE_RIGHT,
+    TRANSLATE,
     ADD_OTHER_PLAYER,
     MOVE_PLAYER_EVENT,
     REMOVE_PLAYER,
@@ -88,6 +87,15 @@ class DeathEvent : public Event{
     public:
         DeathEvent(int64_t ts, Priority p);
         std::string toString() override;
+};
+
+class TranslationEvent : public Event{
+    public:
+        TranslationEvent(int64_t ts, Priority p, char dir, int pId, int64_t fd);
+        std::string toString() override;
+        char direction;
+        int playerId;
+        int64_t frameDelta;
 };
 
 

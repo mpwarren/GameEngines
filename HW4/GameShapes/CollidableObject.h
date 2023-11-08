@@ -26,7 +26,7 @@ class CollidableObject : public sf::RectangleShape{
 
         virtual std::string toString();
 
-        virtual void translate(std::string dir, int64_t frameDelta);
+        virtual void translate(char dir, int64_t frameDelta);
 
         virtual void reset();
     

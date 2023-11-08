@@ -100,8 +100,21 @@ void WorldHandler::onEvent(std::shared_ptr<Event> e){
         {
             std::lock_guard<std::mutex> lock(*objMutex);
             for(auto const& obj : *gameObjects){
-                obj.second->setPosition(obj.second->startingPoint);
+                obj.second->reset();
             }
         }
+    }
+    else if(e->eventType == TRANSLATE){
+        std::shared_ptr<TranslationEvent> translationEvent = std::dynamic_pointer_cast<TranslationEvent>(e);
+        std::cout << "TRANSLATION EVENT: " << translationEvent->toString() << std::endl;
+        std::lock_guard<std::mutex> lock(*objMutex);
+        for(auto const& obj : *gameObjects){
+            if(obj.first != 1 and obj.first != translationEvent->playerId){
+                obj.second->translate(translationEvent->direction, translationEvent->frameDelta);
+            }
+        }
+    }
+    else{
+        std::cout << "ERROR: unknown event sent to world handler\n";
     }
 }

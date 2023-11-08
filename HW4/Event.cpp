@@ -63,3 +63,11 @@ DeathEvent::DeathEvent(int64_t ts, Priority p) : Event(ts, p) {
 std::string DeathEvent::toString(){
     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority);
 }
+
+TranslationEvent::TranslationEvent(int64_t ts, Priority p, char dir, int pId, int64_t fd) : Event(ts, p), direction{dir}, playerId{pId}, frameDelta{fd} {
+    eventType = TRANSLATE;
+}
+
+std::string TranslationEvent::toString(){
+    return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + direction + " " + std::to_string(playerId) + " " + std::to_string(frameDelta);
+}
