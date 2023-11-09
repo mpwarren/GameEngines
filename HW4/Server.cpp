@@ -71,8 +71,7 @@ void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gam
     zmq::context_t context (1);
 
     zmq::socket_t platformMovementSocket (context, zmq::socket_type::pub);
-    //int conflate = 1;
-    //platformMovementSocket.setsockopt(ZMQ_CONFLATE, &conflate, sizeof(conflate));
+
     platformMovementSocket.bind ("tcp://*:5555");
     int64_t lastTime = platformTime->getTime();
 
@@ -89,15 +88,6 @@ void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gam
         lastTime = currentTime;
         if(frameDelta != 0){
             std::lock_guard<std::mutex> lock(dataMutex);
-            // for(MovingPlatform* obj : movingPlatforms){
-            //     obj->movePosition(frameDelta);
-
-            //     std::string platformPositionStr = std::to_string(obj->id) + " " + std::to_string(obj->getPosition().x) + " " + std::to_string(obj->getPosition().y) + "\0";
-            //     zmq::message_t posMessage(platformPositionStr.length());
-            //     memcpy(posMessage.data(), platformPositionStr.c_str(), platformPositionStr.length());
-            //     platformMovementSocket.send(posMessage, zmq::send_flags::none);
-
-            // }
 
             for(auto const& obj : *gameObjects){
                 
@@ -222,45 +212,6 @@ void newPlayerFunction(int id, std::map<int, CollidableObject*>* gameObjects, Sp
     }
 }
 
-// void eventListnerFunction(EventManager* eventManager, Timeline* timeline){
-//     zmq::context_t context (1);
-//     zmq::socket_t eventListner (context, zmq::socket_type::pull);
-//     eventListner.bind ("tcp://*:5558");
-
-//     while(true){
-//         zmq::message_t eventMessage;
-//         eventListner.recv(eventMessage, zmq::recv_flags::none);
-//         std::cout << "RECIEVED EVENT: " << eventMessage.to_string() << std::endl;
-//         //make the event object
-//         std::vector<std::string> params = parseMessage(eventMessage.to_string());
-//         Event * ev;
-//         EventType type = (EventType)stoi(params[0]);
-//         if(type == INPUT_MOVEMENT){
-//             ev = new MovementInputEvent(stoi(params[1]), (Priority)stoi(params[2]), stoi(params[3]), params[4][0], stoi(params[5]));
-//         }
-//         else if(type == GRAVITY){
-//             ev = new GravityEvent(stoi(params[1]), (Priority)stoi(params[2]), stoi(params[3]), stoi(params[4]));
-//         }
-//         else if(type == COLLISION_EVENT){
-//             ev = new CollisionEvent(stoi(params[1]), (Priority)stoi(params[2]), stoi(params[3]), stoi(params[4]));
-//         }
-
-//         //std::cout << "ADDING EVENT " << ev->toString() << std::endl;
-
-//         //set event time to server time
-//         ev->timeStamp = timeline->getTime();
-//         eventManager->addToQueue(ev);
-//         std::cout << "EVENT ADDED " << ev->toString() << std::endl;
-
-
-//         //zmq::message_t rep;
-
-//         //eventListner.send(rep, zmq::send_flags::none);
-//     }
-
-
-// }
-
 
 
 int main(){
@@ -318,7 +269,6 @@ int main(){
     std::thread platformThread(movePlatforms, &gameTimeline, &gameObjects, &sp);
     std::thread heartbeatThread(heartbeat);
     std::thread newPlayerThread(newPlayerFunction, id, &gameObjects, &sp);
-    //std::thread eventListnerThread(eventListnerFunction, eventManager, &gameTimeline);
     std::thread eventPublisherThread(EventPublisher, eventManager, &gameTimeline);
 
     //sockets

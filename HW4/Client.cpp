@@ -65,42 +65,9 @@ void platformMovement(std::map<int, CollidableObject*>* gameObjects, Player* thi
             if(gameObjects->count(id) == 1){
                 gameObjects->at(stoi(words[0]))->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
             }
-            //thisPlayer->gravity(1);
         }
-        //std::cout <<"GOT PLATFORM UPDATE" << positionUpdate.to_string() << std::endl;
-
     }
 }
-
-
-// void playerPositionUpdates(std::map<int, CollidableObject*>* gameObjects, std::vector<Player*>* players, int thisId){
-//     zmq::context_t context (1);
-//     zmq::socket_t recievePlayerPositionSocket (context, zmq::socket_type::sub);
-//     recievePlayerPositionSocket.connect ("tcp://localhost:5558");
-//     recievePlayerPositionSocket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
-
-//     while(true){
-//         zmq::message_t positionUpdate;
-//         recievePlayerPositionSocket.recv(positionUpdate, zmq::recv_flags::none);
-//         std::vector<std::string> words = parseMessage(positionUpdate.to_string());
-        
-//         //std::cout <<"PLAYER MOVEMENT: " << positionUpdate.to_string() << std::endl;
-
-//         int currentId = stoi(words[0]);
-//         if(currentId != thisId){
-//             std::cout << "Recieved new position: " << positionUpdate.to_string() << std::endl;
-//             {
-//                 std::lock_guard<std::mutex> lock(dataMutex);
-//                 if(gameObjects->count(currentId) != 0){
-//                     std::cout << "SETTING POSITION\n";
-//                     gameObjects->at(currentId)->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
-//                 }
-//             }
-//         }
-
-        
-//     }    
-// }
 
 //listen for events published by the server
 void eventListner(EventManager * em, Timeline * timeline){
@@ -351,8 +318,6 @@ int main(){
             }
 
 
-            //-----------------------------------------------------------------
-
             lock.unlock();
             //Process Events
             {
@@ -383,24 +348,9 @@ int main(){
             lock.lock();
 
 
-            //send the server the current player position
-            // if(thisPlayer->getPosition().x != prevX || thisPlayer->getPosition().y != prevY){
-            //     std::string playerPosEvent = std::to_string((int)MOVE_PLAYER_EVENT) + " " + std::to_string((int)MEDIUM) + " " + std::to_string(thisPlayer->id) + " " + std::to_string(thisPlayer->getPosition().x) + " " + std::to_string(thisPlayer->getPosition().y);
-            //     prevX = thisPlayer->getPosition().x;
-            //     prevY = thisPlayer->getPosition().y;
-            //     zmq::message_t posMsg(playerPosEvent.length());
-            //     memcpy(posMsg.data(), playerPosEvent.c_str(), playerPosEvent.length());
-            //     eventSender.send(posMsg, zmq::send_flags::none);
-
-            // }
-
-
-            //---------------------------------------------------------------
-
             for(auto const& obj : gameObjects){
                 window.draw(*obj.second);
             }
-            //lock.unlock();
         }
 
         window.display();
