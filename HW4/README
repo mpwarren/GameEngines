@@ -1,8 +1,8 @@
 Matthew Warren
-CSC481 HW3
+CSC481 HW4
 
 COMPILING:
-- In the parent folder, call make to compile everything
+- In the parent folder where this file is, call make to compile everything
 
 RUNNING:
 - Start the server first with ./server
@@ -12,49 +12,7 @@ CONTROLS:
 - A: Move Left
 - D: Move right
 - W: Jump
-- P: Pause the game with P
-- Z: 1/2x tic rate
-- X: normal tic rate
-- C: 2x tic rate
 
 GAMEPLAY:
 - The clients character is marked with grey, all other clients on the network are white
-- Pausing will pause the game for everyone, but anyone can unpause it
-- Changing the tic rate will only change it for that client's player
-- All players must stay on the screen. The game will not side scroll with one player at each end
 - Death zones are marked in red. Any player that hits them will reset the level
-- When a networked player disconnects, it will take a few seconds to update on the other clients
-
-
-ITERATION NOTES:
-EVENT TYPES:
-- collision
-- spawn
-- death
-- user input
-- translate left
-- translate right
-- add other player
-- move other player
-- remove other player
-
-HANDLERS/WHAT REGISTERED TO
-Collision Handler: collision event
-
-Move Character Handler: spawn
-
-Other Character Handler: add, move, remove other player
-
-Reset Handler: death
-
-Translate Handler: translate left, translate right
-
-Input Hander: input event
-
-
-
-THIS PLAYER HANDLER: input event, spawn event, death event translate event
-
-OTHER PLAYER HANDLER: ADD/MOVE/REMOVE OTHER PLAYER, translate event
-
-WORLD HANDLER: translate event
