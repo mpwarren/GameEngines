@@ -1,0 +1,18 @@
+Matthew Warren
+CSC481 HW4
+
+COMPILING:
+- In the parent folder where this file is, call make to compile everything
+
+RUNNING:
+- Start the server first with ./server
+- Then run any clients with ./client
+
+CONTROLS:
+- A: Move Left
+- D: Move right
+- W: Jump
+
+GAMEPLAY:
+- The clients character is marked with grey, all other clients on the network are white
+- Death zones are marked in red. Any player that hits them will reset the level
