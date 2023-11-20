@@ -11,6 +11,7 @@ RUNNING:
 CONTROLS:
 - A: Move Left
 - D: Move right
+- Left Shift + (A or D): Sprint left/right
 - W: Jump
 
 GAMEPLAY:
