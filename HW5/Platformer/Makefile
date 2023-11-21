@@ -1,65 +1,56 @@
-CC=/usr/bin/g++ -std=c++17
-SHAPESDIR = GameShapes/
-UBUNTU_INTEL_INCLUDE=-I/usr/include -I/usr/include/v8 -I/usr/include/v8/libplatform  	
-UBUNTU_INTEL_LIB=-L/usr/lib/x86_64-linux-gnu
+rwildcard=$(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
+src := $(call rwildcard,./,*.cpp)
 
-all: server client
+obj = $(patsubst %.cpp,%.o,$(src))
+clientObj = $(filter-out server*, $(obj))
+serverObj = $(filter-out client*, $(obj))
 
-server: Server.o Constants.o Event.o EventHandler.o EventManager.o DeathZone.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o 
-	$(CC) Server.o Constants.o Event.o EventHandler.o EventManager.o DeathZone.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o server -lsfml-graphics -lsfml-system -pthread -lzmq -lv8 $(UBUNTU_INTEL_LIB)
+LDFLAGS = -lsfml-graphics -lsfml-window -lsfml-system -lv8
 
-client: Client.o v8helpers.o ScriptManager.o Constants.o Event.o EventHandler.o EventManager.o DeathZone.o SideBoundry.o SpawnPoint.o CollidableObject.o MovingPlatform.o Platform.o Player.o
-	$(CC) Client.o Constants.o Event.o EventHandler.o EventManager.o DeathZone.o SideBoundry.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o client -lsfml-graphics -lsfml-window -lsfml-system -pthread -lzmq -lv8 $(UBUNTU_INTEL_LIB)
+INTELMAC_INCLUDE=-I/usr/local/include							# Intel mac
+APPLESILICON_INCLUDE=-I/opt/homebrew/include					# Apple Silicon
+UBUNTU_APPLESILICON_INCLUDE=-I/usr/include -I/usr/include/v8	# Apple Silicon Ubuntu VM
+UBUNTU_INTEL_INCLUDE=-I/usr/include -I/usr/include/v8			# Intel Ubuntu VM
 
-v8helpers.o: v8helpers.h v8helpers.cpp
-	$(CC) -c v8helpers.cpp $(UBUNTU_INTEL_INCLUDE)
+INTELMAC_LIB=-L/usr/local/lib									# Intel mac
+APPLESILICON_LIB=-L/opt/homebrew/lib							# Apple Silicon
+UBUNTU_APPLESILICON_LIB=-L/usr/lib/aarch64-linux-gnu			# Apple Silicon Ubuntu VM
+UBUNTU_INTEL_LIB=-L/usr/lib/x86_64-linux-gnu					# Intel Ubuntu VM
 
-ScriptManager.o: ScriptManager.h ScriptManager.cpp
-	$(CC) -c ScriptManager.cpp $(UBUNTU_INTEL_INCLUDE)
+MACOS_INCLUDE=$(APPLESILICON_INCLUDE)
+MACOS_LIB=$(APPLESILICON_LIB)
+UBUNTU_INCLUDE=$(UBUNTU_APPLESILICON_INCLUDE)
+UBUNTU_LIB=$(UBUNTU_APPLESILICON_LIB)
 
-Event.o: Event.h Event.cpp
-	$(CC) -c Event.cpp
+MACOS_COMPILER=/usr/bin/clang++
+UBUNTU_COMPILER=/usr/bin/g++
 
-EventHandler.o: EventHandler.h EventHandler.cpp
-	$(CC) -c EventHandler.cpp
+all: client server
 
-EventManager.o: EventManager.h EventManager.cpp
-	$(CC) -c EventManager.cpp
+uname_s := $(shell uname -s)
+client: $(clientObj)
+ifeq ($(uname_s),Darwin)
+	$(MACOS_COMPILER) -std=c++17 -o $@ $^ $(LDFLAGS) $(MACOS_LIB)
+else ifeq ($(uname_s),Linux)
+	$(UBUNTU_COMPILER) -std=c++17 -o $@ $^ $(LDFLAGS) $(UBUNTU_LIB)
+endif
 
-Constants.o: Constants.h Constants.cpp
-	$(CC) -c Constants.cpp
+uname_s := $(shell uname -s)
+server: $(serverObj)
+ifeq ($(uname_s),Darwin)
+	$(MACOS_COMPILER) -std=c++17 -o $@ $^ $(LDFLAGS) $(MACOS_LIB)
+else ifeq ($(uname_s),Linux)
+	$(UBUNTU_COMPILER) -std=c++17 -o $@ $^ $(LDFLAGS) $(UBUNTU_LIB)
+endif
 
-DeathZone.o: $(SHAPESDIR)DeathZone.h $(SHAPESDIR)DeathZone.cpp
-	$(CC) -c $(SHAPESDIR)DeathZone.cpp
+uname_s := $(shell uname -s)
+%.o: %.cpp
+ifeq ($(uname_s),Darwin)
+	$(MACOS_COMPILER) -std=c++17 -c $^ -o $@ $(MACOS_INCLUDE)
+else ifeq ($(uname_s),Linux)
+	$(UBUNTU_COMPILER) -std=c++17 -c $^ -o $@ $(UBUNTU_INCLUDE)
+endif
 
-SpawnPoint.o: SpawnPoint.h SpawnPoint.cpp
-	$(CC) -c SpawnPoint.cpp
-
-Server.o: Server.cpp $(SHAPESDIR)CollidableObject.h $(SHAPESDIR)Platform.h $(SHAPESDIR)MovingPlatform.h
-	$(CC) -c Server.cpp -lzmq -lpthread
-
-Client.o: Client.cpp  $(SHAPESDIR)CollidableObject.h $(SHAPESDIR)Platform.h $(SHAPESDIR)MovingPlatform.h
-	$(CC) -c Client.cpp -lzmq -lpthread
-
-SideBoundry.o: $(SHAPESDIR)SideBoundry.h $(SHAPESDIR)SideBoundry.cpp
-	$(CC) -c $(SHAPESDIR)SideBoundry.cpp
-
-Timeline.o: Timeline.h Timeline.cpp
-	$(CC) -c Timeline.cpp
-
-CollidableObject.o: $(SHAPESDIR)CollidableObject.h $(SHAPESDIR)CollidableObject.cpp Constants.h
-	$(CC) -c $(SHAPESDIR)CollidableObject.cpp
-
-Platform.o: $(SHAPESDIR)Platform.cpp $(SHAPESDIR)Platform.h $(SHAPESDIR)CollidableObject.h 
-	$(CC) -c $(SHAPESDIR)Platform.cpp
-
-MovingPlatform.o: $(SHAPESDIR)MovingPlatform.cpp $(SHAPESDIR)MovingPlatform.h
-	$(CC) -c $(SHAPESDIR)MovingPlatform.cpp
-
-Player.o: $(SHAPESDIR)Player.cpp $(SHAPESDIR)Player.h $(SHAPESDIR)CollidableObject.h
-	$(CC) -c $(SHAPESDIR)Player.cpp -o Player.o $(UBUNTU_INTEL_INCLUDE)
-
+.PHONY: clean
 clean:
-	rm -f *.o
-	rm -f client
-	rm -f server
+	rm -f $(obj) main

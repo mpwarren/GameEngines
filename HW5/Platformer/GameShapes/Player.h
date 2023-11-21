@@ -4,7 +4,7 @@
 #include <SFML/Graphics.hpp>
 #include "Platform.h"
 #include "CollidableObject.h"
-#include <v8/v8.h>
+#include <v8.h>
 
 class Player : public CollidableObject{
     public:

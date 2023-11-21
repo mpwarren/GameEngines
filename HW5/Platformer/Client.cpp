@@ -14,9 +14,9 @@
 #include "EventHandler.h"
 #include "EventManager.h"
 #include <unistd.h>
-#include <v8/v8.h>
+#include <v8.h>
 #include "ScriptManager.h"
-#include <v8/libplatform/libplatform.h>
+#include <libplatform/libplatform.h>
 #include "v8helpers.h"
 
 
@@ -256,7 +256,7 @@ int main(){
 		sm->addContext(isolate, player_context, "player_context");
 
         //expose player to v8
-        std::shared_ptr<Player> thisPlayer = std::dynamic_pointer_cast<Player>(gameObjects[thisId]);
+        thisPlayer = (Player*) gameObjects[thisId];
         thisPlayer->exposeToV8(isolate, player_context);
 
         //ADD SCRIPTS
