@@ -60,7 +60,7 @@ void platformMovement(std::map<int, CollidableObject*>* gameObjects, Player* thi
     while(true){
         zmq::message_t positionUpdate;
         //std::cout <<"WAITING ON PLATFORM UPDATE" << std::endl;
-        platformReciever.recv(positionUpdate, zmq::recv_flags::none);
+        zmq::recv_result_t r = platformReciever.recv(positionUpdate, zmq::recv_flags::none);
         std::vector<std::string> words = parseMessage(positionUpdate.to_string());
         int id = stoi(words[0]);
         if(id != thisPlayer->id){
@@ -82,7 +82,7 @@ void eventListner(EventManager * em, Timeline * timeline){
 
     while(true){
         zmq::message_t eventMessage;
-        eventListner.recv(eventMessage, zmq::recv_flags::none);
+        zmq::recv_result_t r = eventListner.recv(eventMessage, zmq::recv_flags::none);
 
         //std::cout << "EVENT MESSAGE: " << eventMessage.to_string() << std::endl;
 
@@ -143,7 +143,7 @@ int main(){
 
     //Get Id and create player object
     zmq::message_t idMessage(2);
-    newPlayerSocket.recv(idMessage, zmq::recv_flags::none);
+    zmq::recv_result_t r =newPlayerSocket.recv(idMessage, zmq::recv_flags::none);
     std::cout << idMessage.to_string() << std::endl;
     int thisId = stoi(idMessage.to_string());
     std::cout << "Connected with ID: " << idMessage.to_string() << std::endl;
@@ -153,7 +153,7 @@ int main(){
     int moreToRead = 1;
     while(moreToRead != 0){
         zmq::message_t objectMessage;
-        newPlayerSocket.recv(objectMessage, zmq::recv_flags::none);
+        zmq::recv_result_t r =newPlayerSocket.recv(objectMessage, zmq::recv_flags::none);
         std::vector<std::string> params = parseMessage(objectMessage.to_string());
         
         if(params[0] == PLATFORM_ID){
@@ -354,7 +354,9 @@ int main(){
                     thisPlayer->setIsCollidingUnder(false);
                 }
 
-                sm->runOne("change_color", false);
+                std::cout << std::to_string(thisPlayer->getPosition().y + 50) << std::endl;
+
+                sm->runOne("change_color", false, "player_context");
 
                 lock.unlock();
                 //Process Events

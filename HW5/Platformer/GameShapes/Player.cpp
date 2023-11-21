@@ -94,7 +94,10 @@ void Player::setColor(v8::Local<v8::String> property, v8::Local<v8::Value> value
 
 void Player::getColor(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value>& info){
     v8::Local<v8::Object> self = info.Holder();
-    info.GetReturnValue().Set(0);
+    v8::Local<v8::External> wrap = v8::Local<v8::External>::Cast(self->GetInternalField(0));
+    void* ptr = wrap->Value();
+    int colorR = static_cast<Player*>(ptr)->getFillColor().r;
+    info.GetReturnValue().Set(colorR);
 }
 
 void Player::setColliding(v8::Local<v8::String> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void>& info){

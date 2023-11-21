@@ -2,10 +2,10 @@ rwildcard=$(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
 src := $(call rwildcard,./,*.cpp)
 
 obj = $(patsubst %.cpp,%.o,$(src))
-clientObj = $(filter-out server*, $(obj))
-serverObj = $(filter-out client*, $(obj))
+clientObj = $(filter-out ./Server.o, $(obj))
+serverObj = $(filter-out ./Client.o, $(obj))
 
-LDFLAGS = -lsfml-graphics -lsfml-window -lsfml-system -lv8
+LDFLAGS = -lsfml-graphics -lsfml-window -lsfml-system -lv8 -pthread -lzmq
 
 INTELMAC_INCLUDE=-I/usr/local/include							# Intel mac
 APPLESILICON_INCLUDE=-I/opt/homebrew/include					# Apple Silicon
@@ -29,6 +29,7 @@ all: client server
 
 uname_s := $(shell uname -s)
 client: $(clientObj)
+	-echo '$(filter-out ./Server.o, $(obj))'
 ifeq ($(uname_s),Darwin)
 	$(MACOS_COMPILER) -std=c++17 -o $@ $^ $(LDFLAGS) $(MACOS_LIB)
 else ifeq ($(uname_s),Linux)

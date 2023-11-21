@@ -1,6 +1,7 @@
-if(thisPlayer.colliding){
+color = thisPlayer.colorR
+if(color == 255){
     thisPlayer.colorR = 0
 }
 else{
-    thisPlayer.colorR = 200
+    thisPlayer.colorR = color + 1
 }

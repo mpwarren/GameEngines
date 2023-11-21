@@ -83,6 +83,7 @@ void ScriptManager::runOne(std::string script_id, bool reload, std::string conte
 	/**
 	 * This is how you do error checking in a script.
 	 */
+
 	v8::Local<v8::Value> result;
 	if(!smd.script->Run(container.context).ToLocal(&result))
 	{
@@ -93,10 +94,9 @@ void ScriptManager::runOne(std::string script_id, bool reload, std::string conte
 		std::cerr << "**********************************************************" << std::endl;
 		return;
 	}
-
     v8::String::Utf8Value utf8(container.isolate, result);
-    if(strcmp(*utf8, "undefined") != 0)
-        printf("%s\n", *utf8);
+    // if(strcmp(*utf8, "undefined") != 0)
+    //     printf("%s\n", *utf8);
 }
 
 void ScriptManager::runAll(bool reload, std::string context_name)

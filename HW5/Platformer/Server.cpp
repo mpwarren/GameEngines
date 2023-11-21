@@ -38,7 +38,7 @@ void heartbeat(){
 
     while(true){
         zmq::message_t beatMessage;
-        heartbeatSocket.recv(beatMessage, zmq::recv_flags::dontwait);
+        zmq::recv_result_t r = heartbeatSocket.recv(beatMessage, zmq::recv_flags::dontwait);
         if(beatMessage.to_string().length() > 0){
             int id = stoi(beatMessage.to_string());
             lastBeatTime[id] = beatTimeline.getTime();
@@ -116,7 +116,7 @@ void EventPublisher(EventManager *em, Timeline* timeline){
 
     while(true){
         zmq::message_t eventMessage;
-        serverEventListner.recv(eventMessage, zmq::recv_flags::none);
+        zmq::recv_result_t r = serverEventListner.recv(eventMessage, zmq::recv_flags::none);
         //std::cout << "Event: " << eventMessage.to_string() << std::endl;
 
         //add it to server event manager
@@ -170,7 +170,7 @@ void newPlayerFunction(int id, std::map<int, CollidableObject*>* gameObjects, Sp
 
     while(true){
         zmq::message_t pm;
-        playerConnectionSocket.recv(pm, zmq::recv_flags::none);
+        zmq::recv_result_t r = playerConnectionSocket.recv(pm, zmq::recv_flags::none);
 
         //Send the client their player's id
         zmq::message_t newResponse(std::to_string(currentId).length());
