@@ -1,5 +1,8 @@
 #include "Player.h"
 #include <iostream>
+#include "../v8helpers.h"
+#include "../ScriptManager.h"
+
 
 Player::Player(int id, sf::Vector2f size, sf::Vector2f position, sf::Vector2f startingPosition, std::string texturePath) : CollidableObject(id, size, position, startingPosition, texturePath){
     setPosition(position);
@@ -72,4 +75,39 @@ void Player::setIsCollidingUnder(bool iCU){
 
 bool Player::checkCollision(CollidableObject* other){
     return getGlobalBounds().intersects(other->getGlobalBounds());
+}
+
+v8::Local<v8::Object> Player::exposeToV8(v8::Isolate *isolate, v8::Local<v8::Context> &context, std::string context_name){
+	std::vector<v8helpers::ParamContainer<v8::AccessorGetterCallback, v8::AccessorSetterCallback>> v;
+    v.push_back(v8helpers::ParamContainer<v8::AccessorGetterCallback, v8::AccessorSetterCallback>("colorR", getColor, setColor));
+    v.push_back(v8helpers::ParamContainer<v8::AccessorGetterCallback, v8::AccessorSetterCallback>("colliding", getColliding, setColliding));
+    return v8helpers::exposeToV8("thisPlayer", this, v, isolate, context, context_name);
+}
+
+
+void Player::setColor(v8::Local<v8::String> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void>& info){
+    v8::Local<v8::Object> self = info.Holder();
+    v8::Local<v8::External> wrap = v8::Local<v8::External>::Cast(self->GetInternalField(0));
+	void* ptr = wrap->Value();
+	static_cast<Player*>(ptr)->setFillColor(sf::Color(value->Int32Value(), 255, 255));
+}
+
+void Player::getColor(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value>& info){
+    v8::Local<v8::Object> self = info.Holder();
+    info.GetReturnValue().Set(0);
+}
+
+void Player::setColliding(v8::Local<v8::String> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void>& info){
+    v8::Local<v8::Object> self = info.Holder();
+    v8::Local<v8::External> wrap = v8::Local<v8::External>::Cast(self->GetInternalField(0));
+	void* ptr = wrap->Value();
+	static_cast<Player*>(ptr)->colliding = 0;
+}
+
+void Player::getColliding(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value>& info){
+    v8::Local<v8::Object> self = info.Holder();
+    v8::Local<v8::External> wrap = v8::Local<v8::External>::Cast(self->GetInternalField(0));
+	void* ptr = wrap->Value();
+    int colliding_val = static_cast<Player*>(ptr)->colliding;
+    info.GetReturnValue().Set(colliding_val);
 }

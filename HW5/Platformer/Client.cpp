@@ -14,6 +14,10 @@
 #include "EventHandler.h"
 #include "EventManager.h"
 #include <unistd.h>
+#include <v8/v8.h>
+#include "ScriptManager.h"
+#include <v8/libplatform/libplatform.h>
+#include "v8helpers.h"
 
 
 std::mutex dataMutex;
@@ -220,139 +224,180 @@ int main(){
     //spawn the player
     eventManager->addToQueue(std::make_shared<SpawnEvent>(0, HIGH, thisId, &sp));
 
+    //INITALIZE SCRIPTING
+    std::unique_ptr<v8::Platform> platform = v8::platform::NewDefaultPlatform();
+    v8::V8::InitializePlatform(platform.release());
+    v8::V8::InitializeICU();
+    v8::V8::Initialize();
+    v8::Isolate::CreateParams create_params;
+    create_params.array_buffer_allocator = v8::ArrayBuffer::Allocator::NewDefaultAllocator();
+    v8::Isolate *isolate = v8::Isolate::New(create_params);
+
+    {
+        v8::Isolate::Scope isolate_scope(isolate); // must enter the virtual machine to do stuff
+        v8::HandleScope handle_scope(isolate);
+
+        // Best practice to isntall all global functions in the context ahead of time.
+        v8::Local<v8::ObjectTemplate> global = v8::ObjectTemplate::New(isolate);
+
+        // Bind the global 'print' function to the C++ Print callback.
+        global->Set(isolate, "print", v8::FunctionTemplate::New(isolate, v8helpers::Print));
         
-    float prevX = 0;
-    float prevY = 0;
+        // Bind the global static function for retrieving object handles
+        global->Set(isolate, "gethandle", v8::FunctionTemplate::New(isolate, ScriptManager::getHandleFromScript));
+
+        v8::Local<v8::Context> default_context =  v8::Context::New(isolate, NULL, global);
+        v8::Context::Scope default_context_scope(default_context); // enter the context
+
+        ScriptManager *sm = new ScriptManager(isolate, default_context); 
+
+        //Create Player Context
+        v8::Local<v8::Context> player_context = v8::Context::New(isolate, NULL, global);
+		sm->addContext(isolate, player_context, "player_context");
+
+        //expose player to v8
+        std::shared_ptr<Player> thisPlayer = std::dynamic_pointer_cast<Player>(gameObjects[thisId]);
+        thisPlayer->exposeToV8(isolate, player_context);
+
+        //ADD SCRIPTS
+        sm->addScript("change_color", "scripts/change_color.js", "player_context");
+
+        while(window.isOpen()){
+            
+            // check all the window's events that were triggered since the last iteration of the loop
+            sf::Event event;
+            while (window.pollEvent(event))
+            {
+                if (event.type == sf::Event::Closed)
+                    window.close();
+            }
+            window.clear();
 
 
-    while(window.isOpen()){
-        
-        // check all the window's events that were triggered since the last iteration of the loop
-        sf::Event event;
-        while (window.pollEvent(event))
-        {
-            if (event.type == sf::Event::Closed)
-                window.close();
-        }
-        window.clear();
+            int64_t currentTime = gameTime.getTime();
+            int64_t frameDelta = currentTime - lastTime;
+            lastTime = currentTime;
 
+            //std::cout << "RUNNING" << std::to_string(lastTime);
 
-        int64_t currentTime = gameTime.getTime();
-        int64_t frameDelta = currentTime - lastTime;
-        lastTime = currentTime;
-
-        //std::cout << "RUNNING" << std::to_string(lastTime);
-
-        //MOVEMENT
-        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
-            std::shared_ptr<MovementInputEvent> e = std::make_shared<MovementInputEvent>(currentTime, HIGH, thisId, 'W', frameDelta, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift));
-            eventManager->addToQueue(e);
-        }
-        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
-            std::shared_ptr<MovementInputEvent> e = std::make_shared<MovementInputEvent>(currentTime, HIGH, thisId, 'A', frameDelta, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift));
-            eventManager->addToQueue(e);
-        }
-        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
-            std::shared_ptr<MovementInputEvent> e = std::make_shared<MovementInputEvent>(currentTime, HIGH, thisId, 'D', frameDelta, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift));
-            eventManager->addToQueue(e);
-        }
-
-        //GRAVITY/COLLISIONS/DRAWING
-        {
-            std::unique_lock<std::mutex> lock(dataMutex);
-
-            if(thisPlayer->gravity(frameDelta)){
-                //lock.unlock();
-                std::shared_ptr<GravityEvent> e = std::make_shared<GravityEvent>(currentTime, HIGH, thisId);
+            //MOVEMENT
+            if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
+                std::shared_ptr<MovementInputEvent> e = std::make_shared<MovementInputEvent>(currentTime, HIGH, thisId, 'W', frameDelta, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift));
+                eventManager->addToQueue(e);
+            }
+            if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
+                std::shared_ptr<MovementInputEvent> e = std::make_shared<MovementInputEvent>(currentTime, HIGH, thisId, 'A', frameDelta, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift));
+                eventManager->addToQueue(e);
+            }
+            if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
+                std::shared_ptr<MovementInputEvent> e = std::make_shared<MovementInputEvent>(currentTime, HIGH, thisId, 'D', frameDelta, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift));
                 eventManager->addToQueue(e);
             }
 
-            //check for translation
-            bool shouldTranslate = false;
-            char direction;
-            if(thisPlayer->checkCollision(leftBoundry)){
-                thisPlayer->resolveColision(leftBoundry);
-                shouldTranslate = true;
-                direction = 'R';
-                for(Player * p : otherPlayers){
-                    if(p->getPosition().x + p->getSize().x >= rightBoundry->getPosition().x){
-                        shouldTranslate = false;
-                        break;
-                    }
-                }
-            }
-            else if(thisPlayer->checkCollision(rightBoundry)){
-                thisPlayer->resolveColision(rightBoundry);
-                shouldTranslate = true;
-                direction = 'L';
-                for(Player * p : otherPlayers){
-                    if(p->getPosition().x <= leftBoundry->getPosition().x + 1){
-                        shouldTranslate = false;
-                        break;
-                    }
-                }
-            }
-
-            if(shouldTranslate){
-                //std::cout << "SENDING TRANSLATE EVENT\n";
-                std::string translationEventString = std::to_string(TRANSLATE) + " 0 " + std::to_string(HIGH) + " " + direction + " " + std::to_string(thisId) + " " + std::to_string(frameDelta);
-                zmq::message_t translationMessage(translationEventString.length());
-                memcpy(translationMessage.data(), translationEventString.c_str(), translationEventString.length());
-                eventSender.send(translationMessage, zmq::send_flags::none);
-            }
-
-
-            bool collided = false;
-            for(CollidableObject * co : collidableObjects){
-                if(thisPlayer->checkCollision(co)){
-                    std::shared_ptr<CollisionEvent> e = std::make_shared<CollisionEvent>(currentTime, MEDIUM, thisId, co->id);
-                    //lock.unlock();
-                    collided = true;
-                    eventManager->addToQueue(e);
-                    //lock.lock();
-                }
-            }
-            thisPlayer->setColliding(collided);
-            if(!collided){
-                thisPlayer->setIsCollidingUnder(false);
-            }
-
-
-            lock.unlock();
-            //Process Events
+            //GRAVITY/COLLISIONS/DRAWING
             {
-                std::lock_guard<std::mutex> lock(eventManager->mutex);
-                while(!eventManager->eventQueueHigh.empty() && eventManager->eventQueueHigh.top()->timeStamp <= gameTime.getTime()){
-                    std::shared_ptr<Event> ev = eventManager->eventQueueHigh.top();
-                    for(EventHandler* h : eventManager->handlers[ev->eventType]){
-                        h->onEvent(ev);
-                    }
-                    eventManager->eventQueueHigh.pop();
+                std::unique_lock<std::mutex> lock(dataMutex);
+
+                if(thisPlayer->gravity(frameDelta)){
+                    //lock.unlock();
+                    std::shared_ptr<GravityEvent> e = std::make_shared<GravityEvent>(currentTime, HIGH, thisId);
+                    eventManager->addToQueue(e);
                 }
-                while(!eventManager->eventQueueMedium.empty() && eventManager->eventQueueMedium.top()->timeStamp <= gameTime.getTime()){
-                    std::shared_ptr<Event> ev = eventManager->eventQueueMedium.top();
-                    for(EventHandler* h : eventManager->handlers[ev->eventType]){
-                        h->onEvent(ev);
+
+                //check for translation
+                bool shouldTranslate = false;
+                char direction;
+                if(thisPlayer->checkCollision(leftBoundry)){
+                    thisPlayer->resolveColision(leftBoundry);
+                    shouldTranslate = true;
+                    direction = 'R';
+                    for(Player * p : otherPlayers){
+                        if(p->getPosition().x + p->getSize().x >= rightBoundry->getPosition().x){
+                            shouldTranslate = false;
+                            break;
+                        }
                     }
-                    eventManager->eventQueueMedium.pop();
                 }
-                while(!eventManager->eventQueueLow.empty() && eventManager->eventQueueLow.top()->timeStamp <= gameTime.getTime()){
-                    std::shared_ptr<Event> ev = eventManager->eventQueueLow.top();
-                    for(EventHandler* h : eventManager->handlers[ev->eventType]){
-                        h->onEvent(ev);
+                else if(thisPlayer->checkCollision(rightBoundry)){
+                    thisPlayer->resolveColision(rightBoundry);
+                    shouldTranslate = true;
+                    direction = 'L';
+                    for(Player * p : otherPlayers){
+                        if(p->getPosition().x <= leftBoundry->getPosition().x + 1){
+                            shouldTranslate = false;
+                            break;
+                        }
                     }
-                    eventManager->eventQueueLow.pop();
+                }
+
+                if(shouldTranslate){
+                    //std::cout << "SENDING TRANSLATE EVENT\n";
+                    std::string translationEventString = std::to_string(TRANSLATE) + " 0 " + std::to_string(HIGH) + " " + direction + " " + std::to_string(thisId) + " " + std::to_string(frameDelta);
+                    zmq::message_t translationMessage(translationEventString.length());
+                    memcpy(translationMessage.data(), translationEventString.c_str(), translationEventString.length());
+                    eventSender.send(translationMessage, zmq::send_flags::none);
+                }
+
+
+                bool collided = false;
+                for(CollidableObject * co : collidableObjects){
+                    if(thisPlayer->checkCollision(co)){
+                        std::shared_ptr<CollisionEvent> e = std::make_shared<CollisionEvent>(currentTime, MEDIUM, thisId, co->id);
+                        //lock.unlock();
+                        collided = true;
+                        eventManager->addToQueue(e);
+                        //lock.lock();
+                    }
+                }
+                thisPlayer->setColliding(collided);
+                if(!collided){
+                    thisPlayer->setIsCollidingUnder(false);
+                }
+
+                sm->runOne("change_color", false);
+
+                lock.unlock();
+                //Process Events
+                {
+                    std::lock_guard<std::mutex> lock(eventManager->mutex);
+                    while(!eventManager->eventQueueHigh.empty() && eventManager->eventQueueHigh.top()->timeStamp <= gameTime.getTime()){
+                        std::shared_ptr<Event> ev = eventManager->eventQueueHigh.top();
+                        for(EventHandler* h : eventManager->handlers[ev->eventType]){
+                            h->onEvent(ev);
+                        }
+                        eventManager->eventQueueHigh.pop();
+                    }
+                    while(!eventManager->eventQueueMedium.empty() && eventManager->eventQueueMedium.top()->timeStamp <= gameTime.getTime()){
+                        std::shared_ptr<Event> ev = eventManager->eventQueueMedium.top();
+                        for(EventHandler* h : eventManager->handlers[ev->eventType]){
+                            h->onEvent(ev);
+                        }
+                        eventManager->eventQueueMedium.pop();
+                    }
+                    while(!eventManager->eventQueueLow.empty() && eventManager->eventQueueLow.top()->timeStamp <= gameTime.getTime()){
+                        std::shared_ptr<Event> ev = eventManager->eventQueueLow.top();
+                        for(EventHandler* h : eventManager->handlers[ev->eventType]){
+                            h->onEvent(ev);
+                        }
+                        eventManager->eventQueueLow.pop();
+                    }
+                }
+
+                lock.lock();
+
+
+                for(auto const& obj : gameObjects){
+                    window.draw(*obj.second);
                 }
             }
 
-            lock.lock();
-
-
-            for(auto const& obj : gameObjects){
-                window.draw(*obj.second);
-            }
+            window.display();
         }
-
-        window.display();
     }
+
+    isolate->Dispose();
+    v8::V8::Dispose();
+    v8::V8::ShutdownPlatform();
+
+	return 0;
 }

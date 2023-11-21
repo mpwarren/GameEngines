@@ -1,13 +1,21 @@
-CC=g++
+CC=/usr/bin/g++ -std=c++17
 SHAPESDIR = GameShapes/
+UBUNTU_INTEL_INCLUDE=-I/usr/include -I/usr/include/v8 -I/usr/include/v8/libplatform  	
+UBUNTU_INTEL_LIB=-L/usr/lib/x86_64-linux-gnu
 
 all: server client
 
 server: Server.o Constants.o Event.o EventHandler.o EventManager.o DeathZone.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o 
-	$(CC) Server.o Constants.o Event.o EventHandler.o EventManager.o DeathZone.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o server -lsfml-graphics -lsfml-system -pthread -lzmq
+	$(CC) Server.o Constants.o Event.o EventHandler.o EventManager.o DeathZone.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o server -lsfml-graphics -lsfml-system -pthread -lzmq -lv8 $(UBUNTU_INTEL_LIB)
 
-client: Client.o Constants.o Event.o EventHandler.o EventManager.o DeathZone.o SideBoundry.o SpawnPoint.o CollidableObject.o MovingPlatform.o Platform.o Player.o
-	$(CC) Client.o Constants.o Event.o EventHandler.o EventManager.o DeathZone.o SideBoundry.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o client -lsfml-graphics -lsfml-window -lsfml-system -pthread -lzmq
+client: Client.o v8helpers.o ScriptManager.o Constants.o Event.o EventHandler.o EventManager.o DeathZone.o SideBoundry.o SpawnPoint.o CollidableObject.o MovingPlatform.o Platform.o Player.o
+	$(CC) Client.o Constants.o Event.o EventHandler.o EventManager.o DeathZone.o SideBoundry.o SpawnPoint.o Timeline.o CollidableObject.o MovingPlatform.o Platform.o Player.o -o client -lsfml-graphics -lsfml-window -lsfml-system -pthread -lzmq -lv8 $(UBUNTU_INTEL_LIB)
+
+v8helpers.o: v8helpers.h v8helpers.cpp
+	$(CC) -c v8helpers.cpp $(UBUNTU_INTEL_INCLUDE)
+
+ScriptManager.o: ScriptManager.h ScriptManager.cpp
+	$(CC) -c ScriptManager.cpp $(UBUNTU_INTEL_INCLUDE)
 
 Event.o: Event.h Event.cpp
 	$(CC) -c Event.cpp
@@ -49,4 +57,9 @@ MovingPlatform.o: $(SHAPESDIR)MovingPlatform.cpp $(SHAPESDIR)MovingPlatform.h
 	$(CC) -c $(SHAPESDIR)MovingPlatform.cpp
 
 Player.o: $(SHAPESDIR)Player.cpp $(SHAPESDIR)Player.h $(SHAPESDIR)CollidableObject.h
-	$(CC) -c $(SHAPESDIR)Player.cpp
+	$(CC) -c $(SHAPESDIR)Player.cpp -o Player.o $(UBUNTU_INTEL_INCLUDE)
+
+clean:
+	rm -f *.o
+	rm -f client
+	rm -f server
