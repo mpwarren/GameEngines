@@ -17,3 +17,6 @@ CONTROLS:
 GAMEPLAY:
 - The clients character is marked with grey, all other clients on the network are white
 - Death zones are marked in red. Any player that hits them will reset the level
+
+ACKNOWLEDGEMENTS:
+- Scripting code and Makefile adapted from: https://github.ncsu.edu/dlrober4/v8-gamengine-example/tree/main
