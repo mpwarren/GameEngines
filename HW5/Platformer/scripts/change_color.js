@@ -1,7 +1,7 @@
-color = thisPlayer.colorR
+color = thisPlayer.outlineColorR
 if(color == 255){
-    thisPlayer.colorR = 0
+    thisPlayer.outlineColorR = 0
 }
 else{
-    thisPlayer.colorR = color + 1
+    thisPlayer.outlineColorR = thisPlayer.outlineColorR + 1
 }

@@ -80,7 +80,8 @@ bool Player::checkCollision(CollidableObject* other){
 v8::Local<v8::Object> Player::exposeToV8(v8::Isolate *isolate, v8::Local<v8::Context> &context, std::string context_name){
 	std::vector<v8helpers::ParamContainer<v8::AccessorGetterCallback, v8::AccessorSetterCallback>> v;
     v.push_back(v8helpers::ParamContainer<v8::AccessorGetterCallback, v8::AccessorSetterCallback>("colorR", getColor, setColor));
-    v.push_back(v8helpers::ParamContainer<v8::AccessorGetterCallback, v8::AccessorSetterCallback>("colliding", getColliding, setColliding));
+    v.push_back(v8helpers::ParamContainer<v8::AccessorGetterCallback, v8::AccessorSetterCallback>("outlineColorR", getOutlineColorR, setOutlineColorR));
+    v.push_back(v8helpers::ParamContainer<v8::AccessorGetterCallback, v8::AccessorSetterCallback>("xPos", getXPos, setXPos));
     return v8helpers::exposeToV8("thisPlayer", this, v, isolate, context, context_name);
 }
 
@@ -100,17 +101,32 @@ void Player::getColor(v8::Local<v8::String> property, const v8::PropertyCallback
     info.GetReturnValue().Set(colorR);
 }
 
-void Player::setColliding(v8::Local<v8::String> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void>& info){
+void Player::setOutlineColorR(v8::Local<v8::String> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void>& info){
     v8::Local<v8::Object> self = info.Holder();
     v8::Local<v8::External> wrap = v8::Local<v8::External>::Cast(self->GetInternalField(0));
 	void* ptr = wrap->Value();
-	static_cast<Player*>(ptr)->colliding = 0;
+	static_cast<Player*>(ptr)->setOutlineColor(sf::Color(value->Int32Value(), 255, 255));
 }
 
-void Player::getColliding(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value>& info){
+void Player::getOutlineColorR(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value>& info){
+    v8::Local<v8::Object> self = info.Holder();
+    v8::Local<v8::External> wrap = v8::Local<v8::External>::Cast(self->GetInternalField(0));
+    void* ptr = wrap->Value();
+    int colorR = static_cast<Player*>(ptr)->getOutlineColor().r;
+    info.GetReturnValue().Set(colorR);
+}
+
+void Player::setXPos(v8::Local<v8::String> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void>& info){
     v8::Local<v8::Object> self = info.Holder();
     v8::Local<v8::External> wrap = v8::Local<v8::External>::Cast(self->GetInternalField(0));
 	void* ptr = wrap->Value();
-    int colliding_val = static_cast<Player*>(ptr)->colliding;
-    info.GetReturnValue().Set(colliding_val);
+	static_cast<Player*>(ptr)->setPosition(sf::Vector2f(value->Int32Value(), static_cast<Player*>(ptr)->getPosition().x));
+}
+
+void Player::getXPos(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value>& info){
+    v8::Local<v8::Object> self = info.Holder();
+    v8::Local<v8::External> wrap = v8::Local<v8::External>::Cast(self->GetInternalField(0));
+    void* ptr = wrap->Value();
+    int xPos = static_cast<Player*>(ptr)->getPosition().x;
+    info.GetReturnValue().Set(xPos);
 }

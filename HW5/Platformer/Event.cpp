@@ -56,7 +56,7 @@ std::string UpdatePlayerPositionEvent::toString(){
     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(playerId) + " " + std::to_string(xPos)  + " " + std::to_string(yPos);
 }
 
-DeathEvent::DeathEvent(int64_t ts, Priority p) : Event(ts, p) {
+DeathEvent::DeathEvent(int64_t ts, Priority p) : Event(ts, p){
     eventType = DEATH_EVENT;
 }
 

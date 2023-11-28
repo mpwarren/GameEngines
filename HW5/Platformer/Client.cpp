@@ -21,6 +21,21 @@
 
 
 std::mutex dataMutex;
+EventManager *eventManager = new EventManager();
+Timeline anchorTimeline;
+Timeline gameTime(&anchorTimeline);
+
+void ScriptEventGenerator(const v8::FunctionCallbackInfo<v8::Value>& args){
+	v8::Isolate *isolate = args.GetIsolate();
+	v8::Local<v8::Context> context = isolate->GetCurrentContext();
+	v8::EscapableHandleScope handle_scope(args.GetIsolate());
+	v8::Context::Scope context_scope(context);
+
+    std::shared_ptr<Event> dm = std::make_shared<CollisionEvent>(gameTime.getTime(), LOW, 8, 7);
+    eventManager->addToQueue(dm);
+    //v8::Local<v8::Object> v8_obj = std::dynamic_pointer_cast<DeathEvent>(dm)->exposeToV8(isolate, context);
+	//args.GetReturnValue().Set(handle_scope.Escape(v8_obj));
+}
 
 std::vector<std::string> parseMessage(std::string strToParse){
     std::istringstream ss(strToParse);
@@ -210,7 +225,6 @@ int main(){
     int64_t lastTime = gameTime.getTime();
 
     //create event Handlers
-    EventManager *eventManager = new EventManager();
     PlayerHandler * playerHandler = new PlayerHandler(&dataMutex, &gameObjects);
     ClientWorldHandler * worldHandler = new ClientWorldHandler(&dataMutex, &gameObjects, &gameTime, thisId);
     eventManager->addHandler(std::vector<EventType>{INPUT_MOVEMENT, COLLISION_EVENT, GRAVITY, SPAWN_EVENT}, playerHandler);
@@ -246,6 +260,9 @@ int main(){
         // Bind the global static function for retrieving object handles
         global->Set(isolate, "gethandle", v8::FunctionTemplate::New(isolate, ScriptManager::getHandleFromScript));
 
+		global->Set(isolate, "eventFactory", v8::FunctionTemplate::New(isolate, ScriptEventGenerator));
+
+
         v8::Local<v8::Context> default_context =  v8::Context::New(isolate, NULL, global);
         v8::Context::Scope default_context_scope(default_context); // enter the context
 
@@ -257,10 +274,12 @@ int main(){
 
         //expose player to v8
         thisPlayer = (Player*) gameObjects[thisId];
+        thisPlayer->setOutlineThickness(1);
         thisPlayer->exposeToV8(isolate, player_context);
 
         //ADD SCRIPTS
         sm->addScript("change_color", "scripts/change_color.js", "player_context");
+        sm->addScript("check_death_event", "scripts/raise_death_event.js", "player_context");
 
         while(window.isOpen()){
             
@@ -354,9 +373,10 @@ int main(){
                     thisPlayer->setIsCollidingUnder(false);
                 }
 
-                std::cout << std::to_string(thisPlayer->getPosition().y + 50) << std::endl;
+                //std::cout << std::to_string(thisPlayer->getPosition().y + 50) << std::endl;
 
                 sm->runOne("change_color", false, "player_context");
+                sm->runOne("check_death_event", false, "player_context");
 
                 lock.unlock();
                 //Process Events
