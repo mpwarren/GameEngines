@@ -2,6 +2,8 @@
 
 Player::Player(int id, sf::Vector2f size, sf::Vector2f position, std::string texturePath) : CollidableObject(id, size, position, texturePath){
     objId = PLAYER_ID;
+    lives = 3;
+    score = 0;
 }
 
 void Player::movePlayer(char key, int64_t frameDelta){

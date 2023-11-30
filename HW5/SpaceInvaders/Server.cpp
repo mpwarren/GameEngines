@@ -5,6 +5,7 @@
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventManager.h"
+#include "EnemyGrid.h"
 
 std::vector<std::string> parseMessage(std::string strToParse){
     std::istringstream ss(strToParse);
@@ -23,6 +24,7 @@ int main(){
     int id = 1;
 
     Player player(id, sf::Vector2f(20, 40), sf::Vector2f(390, 500), "");
+    EnemyGrid enimies(4, 2, 50);
 
     while(true){
         //wait for client request
@@ -33,6 +35,10 @@ int main(){
         zmq::message_t newResponse(std::to_string(player.id).length());
         memcpy(newResponse.data(), std::to_string(player.id).c_str(), std::to_string(player.id).length());
         playerConnectionSocket.send(newResponse, zmq::send_flags::sndmore);
+
+        zmq::message_t enimiesMsg(enimies.toString().length());
+        memcpy(enimiesMsg.data(), enimies.toString().c_str(), enimies.toString().length());
+        playerConnectionSocket.send(enimiesMsg, zmq::send_flags::sndmore);
 
         zmq::message_t playerMsg(player.toString().length());
         memcpy(playerMsg.data(), player.toString().c_str(), player.toString().length());

@@ -19,3 +19,15 @@ std::string MovementEvent::toString(){
 }
 
 //-----------------------------------------END MOVEMENT EVENT-------------------------------------------------
+
+//---------------------------------------------ENEMY DEATH EVENT-------------------------------------------------
+
+EnemyDeathEvent::EnemyDeathEvent(int64_t ts, Priority p, int r, int c) : Event(ts, p), row{r}, col{c}{
+    eventType = ENEMY_DEATH_EV;
+}
+
+std::string EnemyDeathEvent::toString(){
+    return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(row) + " " + std::to_string(col);
+}
+
+//-----------------------------------------END ENEMY DEATH EVENT-------------------------------------------------

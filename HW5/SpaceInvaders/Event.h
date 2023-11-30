@@ -3,10 +3,10 @@
 
 #include <cstdint>
 #include <string>
+#include <iostream>
 
 enum EventType{
     MOVEMENT_EV,
-    SHOOT_EV,
     PLAYER_DEATH_EV,
     ENEMY_DEATH_EV,
     UNKNOWN
@@ -33,6 +33,14 @@ class MovementEvent : public Event{
         std::string toString() override;
         char key;
         int64_t frameDelta;
+};
+
+class EnemyDeathEvent : public Event{
+    public:
+        EnemyDeathEvent(int64_t ts, Priority p, int r, int c);
+        std::string toString() override;
+        int row;
+        int col;
 };
 
 #endif

@@ -9,6 +9,8 @@ class Player : public CollidableObject{
     public:
         Player(int id, sf::Vector2f size, sf::Vector2f position, std::string texturePath);
         void movePlayer(char key, int64_t frameDelta);
+        int lives;
+        int score;
 };
 
 #endif

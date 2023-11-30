@@ -4,6 +4,8 @@
 #include <string>
 
 extern const std::string PLAYER_ID;
+extern const std::string ENEMY_GRID_ID;
+
 
 extern const int TIC_HALF;
 extern const int TIC_NORMAL;

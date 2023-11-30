@@ -1,6 +1,7 @@
 #include "Constants.h"
 
 const std::string PLAYER_ID = "PL";
+const std::string ENEMY_GRID_ID = "EG";
 
 const int TIC_HALF = 4;
 const int TIC_NORMAL = 2;

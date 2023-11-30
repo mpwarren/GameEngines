@@ -10,7 +10,9 @@
 #include "EventManager.h"
 #include <unistd.h>
 #include "Bullet.h"
+#include "EnemyGrid.h"
 
+std::mutex *enemyMutex;
 
 std::vector<std::string> parseMessage(std::string strToParse){
     std::istringstream ss(strToParse);
@@ -21,9 +23,23 @@ std::vector<std::string> parseMessage(std::string strToParse){
 
 int main(){
 
+    //mutexes
+    enemyMutex = new std::mutex();
+
     //game objects and data structures
     Player * player;
     std::vector<std::shared_ptr<Bullet>> bullets;
+    sf::Text livesText;
+    livesText.setString("Lives:");
+    sf::Font font;
+    font.loadFromFile("Roboto-Black.ttf");
+    livesText.setFont(font);
+    livesText.setCharacterSize(20);
+    livesText.setPosition(10, 570);
+
+    sf::RectangleShape lifeMarker(sf::Vector2f(20, 20));
+    lifeMarker.setFillColor(sf::Color(255, 0, 0));
+    EnemyGrid *enemies;
 
     //connect to server
     zmq::context_t context (1);
@@ -51,6 +67,9 @@ int main(){
             int id = stoi(params[1]);
             player = new Player(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), params[6]);
         }
+        else if(params[0] == ENEMY_GRID_ID){
+            enemies = new EnemyGrid(stoi(params[1]), stoi(params[2]), stoi(params[3]));
+        }
         else{
             std::cout << "ERROR: UNKNOWN OBJECT TYPE RECIEVED FROM SERVER" << std::endl;
         }
@@ -62,10 +81,13 @@ int main(){
     //create event manager and handlers
     EventManager *eventManager = new EventManager();
     PlayerHandler * playerHandler = new PlayerHandler(player);
-    eventManager->addHandler(std::vector<EventType>{MOVEMENT_EV}, playerHandler);
+    eventManager->addHandler(std::vector<EventType>{MOVEMENT_EV, ENEMY_DEATH_EV}, playerHandler);
+
+    EnemyHandler * enemyHandler = new EnemyHandler(enemies, enemyMutex);
+    eventManager->addHandler(std::vector<EventType>{ENEMY_DEATH_EV}, enemyHandler);
 
     //create sfml window
-    sf::RenderWindow window(sf::VideoMode(SCENE_WIDTH, SCENE_HEIGHT), "My Window", sf::Style::Default);
+    sf::RenderWindow window(sf::VideoMode(SCENE_WIDTH, SCENE_HEIGHT), "Space Invaders Clone", sf::Style::Default);
 
     //create timelines
     Timeline anchorTimeline;
@@ -103,18 +125,33 @@ int main(){
             eventManager->addToQueue(e);
         }
 
-        //move bullets
+        //move bullets and check for collisions with enimies
         for(auto it = bullets.begin(); it != bullets.end();){
             if((*it)->getPosition().y < 0){
                 it = bullets.erase(it);
-                std::cout << "REMOVED BULLET\n";
             }
             else{
-                (*it)->moveBullet(frameDelta);
-                ++it;
-                //std::cout << "MOVED BULLET\n";
+                bool removed = false;
+                std::lock_guard<std::mutex> lock(*enemyMutex);
+                for(std::vector<Enemy*> row : enemies->enemyGrid){
+                    for(Enemy* e : row){
+                        if(!e->dead && (*it)->getGlobalBounds().intersects(e->getGlobalBounds())){
+                            int row = e->row;
+                            int col = e->col;
+                            std::shared_ptr<EnemyDeathEvent> e = std::make_shared<EnemyDeathEvent>(currentTime, HIGH, row, col);
+                            eventManager->addToQueue(e);
+                            it = bullets.erase(it);
+                            removed = true;
+                        }
+                    }
+                }
+                if(!removed){
+                    (*it)->moveBullet(frameDelta);
+                    ++it;
+                }
             }
         }
+
         
 
         //process events
@@ -147,6 +184,28 @@ int main(){
         for(std::shared_ptr<Bullet> b : bullets){
             window.draw(*b);
         }
+
+        //draw enemies
+        {
+            std::lock_guard<std::mutex> lock(*enemyMutex);
+            for(std::vector<Enemy*> row : enemies->enemyGrid){
+                for(Enemy* e : row){
+                    if(!e->dead){
+                        window.draw(*e);
+                    }
+                }
+            }
+        }
+
+
+        //draw lives 
+        window.draw(livesText);
+        lifeMarker.setPosition(sf::Vector2f(70, 570));
+        for(int i = 0; i < player->lives; i++){
+            window.draw(lifeMarker);
+            lifeMarker.setPosition(lifeMarker.getPosition().x + 40, lifeMarker.getPosition().y);
+        }
+
         window.display();
 
     }
