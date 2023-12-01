@@ -14,6 +14,15 @@ std::vector<std::string> parseMessage(std::string strToParse){
     return words;
 }
 
+void enemyAI(){
+    zmq::context_t context (1);
+    zmq::socket_t enemySender (context, zmq::socket_type::push);
+    enemySender.bind("tcp://*:5557");
+
+
+
+}
+
 int main(){
     
     //set up server connection
@@ -24,7 +33,9 @@ int main(){
     int id = 1;
 
     Player player(id, sf::Vector2f(20, 40), sf::Vector2f(390, 500), "");
-    EnemyGrid enimies(4, 2, 50);
+    EnemyGrid enemies(4, 2, 50);
+
+    int highScore = 0;
 
     while(true){
         //wait for client request
@@ -36,9 +47,9 @@ int main(){
         memcpy(newResponse.data(), std::to_string(player.id).c_str(), std::to_string(player.id).length());
         playerConnectionSocket.send(newResponse, zmq::send_flags::sndmore);
 
-        zmq::message_t enimiesMsg(enimies.toString().length());
-        memcpy(enimiesMsg.data(), enimies.toString().c_str(), enimies.toString().length());
-        playerConnectionSocket.send(enimiesMsg, zmq::send_flags::sndmore);
+        zmq::message_t enemiesMsg(enemies.toString().length());
+        memcpy(enemiesMsg.data(), enemies.toString().c_str(), enemies.toString().length());
+        playerConnectionSocket.send(enemiesMsg, zmq::send_flags::sndmore);
 
         zmq::message_t playerMsg(player.toString().length());
         memcpy(playerMsg.data(), player.toString().c_str(), player.toString().length());

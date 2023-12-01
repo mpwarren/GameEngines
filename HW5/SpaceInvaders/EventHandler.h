@@ -24,7 +24,7 @@ class PlayerHandler : public EventHandler{
 class EnemyHandler : public EventHandler{
     public:
         EnemyHandler(EnemyGrid* eg, std::mutex * gridMutex);
-        EnemyGrid * enimies;
+        EnemyGrid * enemies;
         std::mutex * enemyMutex;
         void onEvent(std::shared_ptr<Event> e) override;
 };

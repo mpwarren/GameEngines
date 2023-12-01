@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include "Bullet.h"
 #include "EnemyGrid.h"
+#include "EnemyBullet.h"
 
 std::mutex *enemyMutex;
 
@@ -21,6 +22,15 @@ std::vector<std::string> parseMessage(std::string strToParse){
     return words;
 }
 
+void recieveEnemyInstructions(EnemyGrid* en){
+    //connect to server
+    zmq::context_t context (1);
+    zmq::socket_t enemyListner (context, zmq::socket_type::pull);
+    enemyListner.connect ("tcp://localhost:5557");
+
+
+}
+
 int main(){
 
     //mutexes
@@ -29,13 +39,20 @@ int main(){
     //game objects and data structures
     Player * player;
     std::vector<std::shared_ptr<Bullet>> bullets;
+    std::vector<std::shared_ptr<EnemyBullet>> enemyBullets;
+
     sf::Text livesText;
     livesText.setString("Lives:");
     sf::Font font;
     font.loadFromFile("Roboto-Black.ttf");
     livesText.setFont(font);
     livesText.setCharacterSize(20);
-    livesText.setPosition(10, 570);
+    livesText.setPosition(10, 560);
+
+    sf::Text scoreText;
+    scoreText.setFont(font);
+    scoreText.setCharacterSize(20);
+    scoreText.setPosition(650, 10);
 
     sf::RectangleShape lifeMarker(sf::Vector2f(20, 20));
     lifeMarker.setFillColor(sf::Color(255, 0, 0));
@@ -93,7 +110,6 @@ int main(){
     Timeline anchorTimeline;
     Timeline gameTime(&anchorTimeline);
     int64_t lastTime = gameTime.getTime();
-
     while(window.isOpen()){
     
         // check all the window's events that were triggered since the last iteration of the loop
@@ -125,7 +141,7 @@ int main(){
             eventManager->addToQueue(e);
         }
 
-        //move bullets and check for collisions with enimies
+        //move bullets and check for collisions with enemies
         for(auto it = bullets.begin(); it != bullets.end();){
             if((*it)->getPosition().y < 0){
                 it = bullets.erase(it);
@@ -205,6 +221,9 @@ int main(){
             window.draw(lifeMarker);
             lifeMarker.setPosition(lifeMarker.getPosition().x + 40, lifeMarker.getPosition().y);
         }
+
+        scoreText.setString("Score: " + std::to_string(player->score));
+        window.draw(scoreText);
 
         window.display();
 

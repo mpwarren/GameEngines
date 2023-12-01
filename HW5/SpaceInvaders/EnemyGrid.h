@@ -19,9 +19,13 @@ class EnemyGrid{
         EnemyGrid(int w, int h, int s);
         int width;
         int height;
-        int spacing;        
+        int spacing;    
+        int leftCol;
+        int rightCol; 
+        int numAlive;  
         std::vector<std::vector<Enemy*>> enemyGrid;
         std::string toString();
+        void killEnemy(int row, int col);
 };
 
 #endif
