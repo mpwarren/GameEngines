@@ -6,21 +6,24 @@ Enemy::Enemy(int id, sf::Vector2f size, sf::Vector2f position, std::string textu
 
 EnemyGrid::EnemyGrid(int w, int h, int s) : width{w}, height{h}, spacing{s}{
     leftCol = 0;
+    direction = "R";
+    distanceMovedDown = 0;
     rightCol = w - 1;
     numAlive = w * h;
     
     int enemyWidth = 50;
     int startingX = 50;
     int startingY = 50;
+    int currentY = startingY;
     int currentX = startingX;
     for(int i = 0; i < height; i++){
         enemyGrid.push_back(std::vector<Enemy*>());
         for(int j = 0; j < width; j++){
-            enemyGrid[i].push_back(new Enemy(-1, sf::Vector2f(enemyWidth, 20), sf::Vector2f(currentX, startingY), "", i, j));
+            enemyGrid[i].push_back(new Enemy(-1, sf::Vector2f(enemyWidth, 20), sf::Vector2f(currentX, currentY), "", i, j));
             currentX += enemyWidth + spacing;
         }
         currentX = startingX;
-        startingY *= 2;
+        currentY += startingY;
     }
 }
 
@@ -73,6 +76,55 @@ void EnemyGrid::killEnemy(int row, int col){
                     }
                 }
             }
+        }
+    }
+}
+
+
+void EnemyGrid::moveEnemies(int64_t frameDelta){
+
+    float speedModifier = 0.5;
+
+    if(direction == "R"){
+        for(std::vector<Enemy*> row : enemyGrid){
+            for(Enemy* e : row){
+                e->move(frameDelta * speedModifier, 0);
+            }
+        }
+
+        if(enemyGrid[0][rightCol]->getPosition().x > SCENE_WIDTH - 50){
+            direction = "D";
+            moveRightNext = false;
+        }
+    }
+    else if(direction == "D"){
+        for(std::vector<Enemy*> row : enemyGrid){
+            for(Enemy* e : row){
+                e->move(0, frameDelta * speedModifier);
+            }
+        }
+        distanceMovedDown += frameDelta;
+
+        if(distanceMovedDown > 50){
+            distanceMovedDown = 0;
+            if(moveRightNext){
+                direction = "R";
+            }
+            else{
+                direction = "L";
+            }
+        }
+    }
+    else if(direction == "L"){
+        for(std::vector<Enemy*> row : enemyGrid){
+            for(Enemy* e : row){
+                e->move(-frameDelta * speedModifier, 0);
+            }
+        }
+
+        if(enemyGrid[0][leftCol]->getPosition().x < 0){
+            direction = "D";
+            moveRightNext = true;
         }
     }
 }

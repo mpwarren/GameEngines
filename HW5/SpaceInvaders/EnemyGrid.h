@@ -26,6 +26,12 @@ class EnemyGrid{
         std::vector<std::vector<Enemy*>> enemyGrid;
         std::string toString();
         void killEnemy(int row, int col);
+        void moveEnemies(int64_t frameDelta);
+
+    private:
+        std::string direction;
+        float distanceMovedDown;
+        bool moveRightNext;
 };
 
 #endif

@@ -14,6 +14,7 @@
 #include "EnemyBullet.h"
 
 std::mutex *enemyMutex;
+std::mutex *enemyBulletMutex;
 
 std::vector<std::string> parseMessage(std::string strToParse){
     std::istringstream ss(strToParse);
@@ -22,19 +23,39 @@ std::vector<std::string> parseMessage(std::string strToParse){
     return words;
 }
 
-void recieveEnemyInstructions(EnemyGrid* en){
+void recieveEnemyInstructions(EnemyGrid* en, std::vector<std::shared_ptr<EnemyBullet>>* enemyBullets){
     //connect to server
     zmq::context_t context (1);
     zmq::socket_t enemyListner (context, zmq::socket_type::pull);
     enemyListner.connect ("tcp://localhost:5557");
 
+    while(true){
+        zmq::message_t aiMessage(10);
+        zmq::recv_result_t r = enemyListner.recv(aiMessage, zmq::recv_flags::none);
+        std::cout << "msg: " << aiMessage.to_string() << std::endl;
 
+        std::vector<std::string> params = parseMessage(aiMessage.to_string());
+
+        if(params[0] == "S"){
+            std::shared_ptr<EnemyBullet> b;
+            {
+                std::lock_guard<std::mutex> lock(*enemyMutex);
+                Enemy * enemy = en->enemyGrid[stoi(params[1])][stoi(params[2])];
+                b = std::make_shared<EnemyBullet>(enemy->getPosition().x + (enemy->getSize().x / 2), enemy->getPosition().y);
+            }
+            {
+                std::lock_guard<std::mutex> lock(*enemyBulletMutex);
+                enemyBullets->push_back(b);
+            }
+        }
+    }
 }
 
 int main(){
 
     //mutexes
     enemyMutex = new std::mutex();
+    enemyBulletMutex = new std::mutex();
 
     //game objects and data structures
     Player * player;
@@ -110,6 +131,9 @@ int main(){
     Timeline anchorTimeline;
     Timeline gameTime(&anchorTimeline);
     int64_t lastTime = gameTime.getTime();
+
+    std::thread enemyAIthread(recieveEnemyInstructions, enemies, &enemyBullets);
+
     while(window.isOpen()){
     
         // check all the window's events that were triggered since the last iteration of the loop
@@ -168,7 +192,29 @@ int main(){
             }
         }
 
-        
+        {
+            std::lock_guard<std::mutex> lock(*enemyBulletMutex);
+            for(auto it = enemyBullets.begin(); it != enemyBullets.end();){
+                if((*it)->getGlobalBounds().intersects(player->getGlobalBounds())){
+                    player->lives--;
+                    it = enemyBullets.erase(it);
+                }
+                else if((*it)->getPosition().y > SCENE_HEIGHT){
+                    it = enemyBullets.erase(it);
+                }
+                else{
+                    (*it)->moveBullet(frameDelta);
+                    ++it; 
+                }
+            }
+        }
+
+
+        //move enemies
+        {
+            std::lock_guard<std::mutex> lock(*enemyMutex);
+            enemies->moveEnemies(frameDelta);
+        }
 
         //process events
         {
@@ -200,6 +246,14 @@ int main(){
         for(std::shared_ptr<Bullet> b : bullets){
             window.draw(*b);
         }
+
+        {
+            std::lock_guard<std::mutex> lock(*enemyBulletMutex);
+            for(std::shared_ptr<EnemyBullet> b : enemyBullets){
+                window.draw(*b);
+            }
+        }
+
 
         //draw enemies
         {

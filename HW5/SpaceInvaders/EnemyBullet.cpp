@@ -1,6 +1,6 @@
 #include "EnemyBullet.h"
 
-EnemyBullet::EnemyBullet(float xPosition) : CollidableObject(-1, sf::Vector2f(2, 15), sf::Vector2f(xPosition + 9, 500), ""){
+EnemyBullet::EnemyBullet(float xPosition, float yPosition) : CollidableObject(-1, sf::Vector2f(2, 15), sf::Vector2f(xPosition, yPosition), ""){
 
 }
 

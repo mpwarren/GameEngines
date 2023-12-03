@@ -5,7 +5,7 @@
 
 class EnemyBullet : public CollidableObject{
     public:
-        EnemyBullet(float xPosition);
+        EnemyBullet(float xPosition, float yPosition);
         void moveBullet(int64_t frameDelta);
         int width;
         int height;
