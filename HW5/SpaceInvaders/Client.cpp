@@ -20,6 +20,12 @@
 std::mutex *enemyMutex;
 std::mutex *enemyBulletMutex;
 
+//create timelines
+Timeline anchorTimeline;
+Timeline gameTime(&anchorTimeline);
+
+EventManager *eventManager = new EventManager();
+
 std::vector<std::string> parseMessage(std::string strToParse){
     std::istringstream ss(strToParse);
     std::istream_iterator<std::string> begin(ss), end;
@@ -27,17 +33,20 @@ std::vector<std::string> parseMessage(std::string strToParse){
     return words;
 }
 
-// void ScriptEventGenerator(const v8::FunctionCallbackInfo<v8::Value>& args){
-// 	v8::Isolate *isolate = args.GetIsolate();
-// 	v8::Local<v8::Context> context = isolate->GetCurrentContext();
-// 	v8::EscapableHandleScope handle_scope(args.GetIsolate());
-// 	v8::Context::Scope context_scope(context);
+void ScriptEventGenerator(const v8::FunctionCallbackInfo<v8::Value>& args){
+	v8::Isolate *isolate = args.GetIsolate();
+	v8::Local<v8::Context> context = isolate->GetCurrentContext();
+	v8::EscapableHandleScope handle_scope(args.GetIsolate());
+	v8::Context::Scope context_scope(context);
 
-//     std::shared_ptr<Event> dm = std::make_shared<CollisionEvent>(gameTime.getTime(), LOW, 8, 7);
-//     eventManager->addToQueue(dm);
-//     //v8::Local<v8::Object> v8_obj = std::dynamic_pointer_cast<DeathEvent>(dm)->exposeToV8(isolate, context);
-// 	//args.GetReturnValue().Set(handle_scope.Escape(v8_obj));
-// }
+    std::cout << "adding event\n";
+
+    std::shared_ptr<Event> e = std::make_shared<GainLifeEvent>(gameTime.getTime(), LOW);
+    eventManager->addToQueue(e, false);
+    std::cout << "in queue\n";
+    //v8::Local<v8::Object> v8_obj = std::dynamic_pointer_cast<DeathEvent>(dm)->exposeToV8(isolate, context);
+	//args.GetReturnValue().Set(handle_scope.Escape(v8_obj));
+}
 
 void recieveEnemyInstructions(EnemyGrid* en, std::vector<std::shared_ptr<EnemyBullet>>* enemyBullets){
     //connect to server
@@ -137,19 +146,18 @@ int main(){
     }
 
     //create event manager and handlers
-    EventManager *eventManager = new EventManager();
+
     PlayerHandler * playerHandler = new PlayerHandler(player);
-    eventManager->addHandler(std::vector<EventType>{MOVEMENT_EV, ENEMY_DEATH_EV}, playerHandler);
+    eventManager->addHandler(std::vector<EventType>{MOVEMENT_EV, ENEMY_DEATH_EV, GAIN_LIFE_EV}, playerHandler);
 
     EnemyHandler * enemyHandler = new EnemyHandler(enemies, enemyMutex);
     eventManager->addHandler(std::vector<EventType>{ENEMY_DEATH_EV}, enemyHandler);
 
+
     //create sfml window
     sf::RenderWindow window(sf::VideoMode(SCENE_WIDTH, SCENE_HEIGHT), "Space Invaders Clone", sf::Style::Default);
 
-    //create timelines
-    Timeline anchorTimeline;
-    Timeline gameTime(&anchorTimeline);
+
     int64_t lastTime = gameTime.getTime();
 
     std::thread enemyAIthread(recieveEnemyInstructions, enemies, &enemyBullets);
@@ -176,7 +184,7 @@ int main(){
         // Bind the global static function for retrieving object handles
         global->Set(isolate, "gethandle", v8::FunctionTemplate::New(isolate, ScriptManager::getHandleFromScript));
 
-		//global->Set(isolate, "eventFactory", v8::FunctionTemplate::New(isolate, ScriptEventGenerator));
+		global->Set(isolate, "eventFactory", v8::FunctionTemplate::New(isolate, ScriptEventGenerator));
 
 
         v8::Local<v8::Context> default_context =  v8::Context::New(isolate, NULL, global);
@@ -189,7 +197,12 @@ int main(){
 		sm->addContext(isolate, player_context, "player_context");
 
         player->exposeToV8(isolate, player_context);
+        enemies->exposeToV8(isolate, player_context);
         sm->addScript("change_color", "scripts/change_color.js", "player_context");
+        sm->addScript("gain_life", "scripts/gain_life.js", "player_context");
+
+        ScriptHandler * scriptHandler = new ScriptHandler(sm);
+        eventManager->addHandler(std::vector<EventType>{ENEMY_DEATH_EV}, scriptHandler);
 
         while(window.isOpen()){
         
@@ -299,6 +312,7 @@ int main(){
 
             //process events
             {
+                std::cout << "Waiting to process event\n";
                 std::lock_guard<std::mutex> lock(eventManager->mutex);
                 while(!eventManager->eventQueueHigh.empty() && eventManager->eventQueueHigh.top()->timeStamp <= gameTime.getTime()){
                     std::shared_ptr<Event> ev = eventManager->eventQueueHigh.top();
@@ -322,6 +336,7 @@ int main(){
                     eventManager->eventQueueLow.pop();
                 }
             }
+            std::cout << "events processed\n";
 
             if(player->lives != 0){
                 window.draw(*player);

@@ -5,6 +5,9 @@
 #include <vector>
 #include <mutex>
 #include "Constants.h"
+#include <v8.h>
+#include <libplatform/libplatform.h>
+#include "v8helpers.h"
 
 class Enemy : public CollidableObject{
     public:
@@ -28,6 +31,9 @@ class EnemyGrid{
         void killEnemy(int row, int col);
         void moveEnemies(int64_t frameDelta);
         void createEnemies();
+        v8::Local<v8::Object> exposeToV8(v8::Isolate *isolate, v8::Local<v8::Context> &context, std::string context_name="default");
+        static void setNumAlive(v8::Local<v8::String> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void>& info);
+        static void getNumAlive(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value>& info);
 
     private:
         std::string direction;

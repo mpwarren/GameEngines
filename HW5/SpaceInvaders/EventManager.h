@@ -19,7 +19,7 @@ class EventManager{
 
         EventManager();
         void addHandler(std::vector<EventType> types, EventHandler* handler);
-        void addToQueue(std::shared_ptr<Event> e);
+        void addToQueue(std::shared_ptr<Event> e, bool shouldLock = true);
         std::mutex mutex;
 };
 

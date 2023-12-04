@@ -31,3 +31,11 @@ std::string EnemyDeathEvent::toString(){
 }
 
 //-----------------------------------------END ENEMY DEATH EVENT-------------------------------------------------
+
+//---------------------------------------------GAIN LIFE EVENT-------------------------------------------------
+
+GainLifeEvent::GainLifeEvent(int64_t ts, Priority p) : Event(ts, p){
+    eventType = GAIN_LIFE_EV;
+}
+
+//-----------------------------------------END GAIN LIFE EVENT-------------------------------------------------

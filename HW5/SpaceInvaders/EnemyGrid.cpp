@@ -132,3 +132,24 @@ void EnemyGrid::createEnemies(){
         currentY += startingY;
     }
 }
+
+v8::Local<v8::Object> EnemyGrid::exposeToV8(v8::Isolate *isolate, v8::Local<v8::Context> &context, std::string context_name){
+    std::vector<v8helpers::ParamContainer<v8::AccessorGetterCallback, v8::AccessorSetterCallback>> v;
+    v.push_back(v8helpers::ParamContainer<v8::AccessorGetterCallback, v8::AccessorSetterCallback>("numAlive", getNumAlive, setNumAlive));
+    return v8helpers::exposeToV8("enemies", this, v, isolate, context, context_name);
+}
+
+void EnemyGrid::setNumAlive(v8::Local<v8::String> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void>& info){
+    v8::Local<v8::Object> self = info.Holder();
+    v8::Local<v8::External> wrap = v8::Local<v8::External>::Cast(self->GetInternalField(0));
+	void* ptr = wrap->Value();
+	static_cast<EnemyGrid*>(ptr)->numAlive = value->Int32Value();
+}
+
+void EnemyGrid::getNumAlive(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value>& info){
+    v8::Local<v8::Object> self = info.Holder();
+    v8::Local<v8::External> wrap = v8::Local<v8::External>::Cast(self->GetInternalField(0));
+    void* ptr = wrap->Value();
+    int numAlive = static_cast<EnemyGrid*>(ptr)->numAlive;
+    info.GetReturnValue().Set(numAlive);
+}

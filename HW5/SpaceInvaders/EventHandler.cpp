@@ -22,6 +22,9 @@ void PlayerHandler::onEvent(std::shared_ptr<Event> e){
     else if(e->eventType == ENEMY_DEATH_EV){
         player->score += 100;
     }
+    else if(e->eventType == GAIN_LIFE_EV){
+        player->lives++;
+    }
 }
 
 EnemyHandler::EnemyHandler(EnemyGrid* eg, std::mutex * gridMutex) : enemies{eg}, enemyMutex{gridMutex}{
@@ -36,9 +39,10 @@ void EnemyHandler::onEvent(std::shared_ptr<Event> e){
         zmq::message_t eventMsg(size);
         memcpy(eventMsg.data(), enemyDeathEvent->toString().c_str(), size);
         serverEventSender->send(eventMsg, zmq::send_flags::none);
-
+        std::cout << "waiting on enemy mutex\n";
         std::lock_guard<std::mutex> lock(*enemyMutex);
         enemies->killEnemy(enemyDeathEvent->row, enemyDeathEvent->col);
+        std::cout << "out of enemy mutex\n";
     }
 }
 
@@ -52,5 +56,15 @@ void ServerHandler::onEvent(std::shared_ptr<Event> e){
 
         std::lock_guard<std::mutex> lock(*enemyMutex);
         enemies->killEnemy(enemyDeathEvent->row, enemyDeathEvent->col);
+    }
+}
+
+ScriptHandler::ScriptHandler(ScriptManager * manager){
+
+}
+
+void ScriptHandler::onEvent(std::shared_ptr<Event> e){
+    if(e->eventType == ENEMY_DEATH_EV){
+        sm->runOne("gain_life", false, "player_context");
     }
 }

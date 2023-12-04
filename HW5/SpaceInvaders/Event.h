@@ -9,6 +9,7 @@ enum EventType{
     MOVEMENT_EV,
     PLAYER_DEATH_EV,
     ENEMY_DEATH_EV,
+    GAIN_LIFE_EV,
     UNKNOWN
 };
 
@@ -33,6 +34,11 @@ class MovementEvent : public Event{
         std::string toString() override;
         char key;
         int64_t frameDelta;
+};
+
+class GainLifeEvent : public Event{
+    public:
+        GainLifeEvent(int64_t ts, Priority p);
 };
 
 class EnemyDeathEvent : public Event{

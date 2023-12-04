@@ -18,19 +18,34 @@ void EventManager::addHandler(std::vector<EventType> types, EventHandler* handle
     }
 }
 
-void EventManager::addToQueue(std::shared_ptr<Event> e){
+void EventManager::addToQueue(std::shared_ptr<Event> e, bool shouldLock){
     {
-        std::lock_guard<std::mutex> lock(mutex);
 
-        if(e->priority == HIGH){
-            eventQueueHigh.push(e);
+        if(shouldLock){
+            std::lock_guard<std::mutex> lock(mutex);
+
+            if(e->priority == HIGH){
+                eventQueueHigh.push(e);
+            }
+            else if(e->priority == MEDIUM){
+                eventQueueMedium.push(e);
+            }
+            else if(e->priority == LOW){
+                eventQueueLow.push(e);
+            }
         }
-        else if(e->priority == MEDIUM){
-            eventQueueMedium.push(e);
+        else{
+            if(e->priority == HIGH){
+                eventQueueHigh.push(e);
+            }
+            else if(e->priority == MEDIUM){
+                eventQueueMedium.push(e);
+            }
+            else if(e->priority == LOW){
+                eventQueueLow.push(e);
+            }
         }
-        else if(e->priority == LOW){
-            eventQueueLow.push(e);
-        }
+
     }
 
 }

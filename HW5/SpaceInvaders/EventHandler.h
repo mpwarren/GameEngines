@@ -40,4 +40,11 @@ class ServerHandler : public EventHandler{
         void onEvent(std::shared_ptr<Event> e) override;
 };
 
+class ScriptHandler : public EventHandler{
+    public:
+        ScriptHandler(ScriptManager * manager);
+        ScriptManager * sm;
+        void onEvent(std::shared_ptr<Event> e) override;
+};
+
 #endif
