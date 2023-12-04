@@ -10,21 +10,7 @@ EnemyGrid::EnemyGrid(int w, int h, int s) : width{w}, height{h}, spacing{s}{
     distanceMovedDown = 0;
     rightCol = w - 1;
     numAlive = w * h;
-    
-    int enemyWidth = 50;
-    int startingX = 50;
-    int startingY = 50;
-    int currentY = startingY;
-    int currentX = startingX;
-    for(int i = 0; i < height; i++){
-        enemyGrid.push_back(std::vector<Enemy*>());
-        for(int j = 0; j < width; j++){
-            enemyGrid[i].push_back(new Enemy(-1, sf::Vector2f(enemyWidth, 20), sf::Vector2f(currentX, currentY), "", i, j));
-            currentX += enemyWidth + spacing;
-        }
-        currentX = startingX;
-        currentY += startingY;
-    }
+    createEnemies();
 }
 
 std::string EnemyGrid::toString(){
@@ -126,5 +112,23 @@ void EnemyGrid::moveEnemies(int64_t frameDelta){
             direction = "D";
             moveRightNext = true;
         }
+    }
+}
+
+void EnemyGrid::createEnemies(){
+    int enemyWidth = 50;
+    int startingX = 50;
+    int startingY = 50;
+    int currentY = startingY;
+    int currentX = startingX;
+    enemyGrid.clear();
+    for(int i = 0; i < height; i++){
+        enemyGrid.push_back(std::vector<Enemy*>());
+        for(int j = 0; j < width; j++){
+            enemyGrid[i].push_back(new Enemy(-1, sf::Vector2f(enemyWidth, 20), sf::Vector2f(currentX, currentY), "", i, j));
+            currentX += enemyWidth + spacing;
+        }
+        currentX = startingX;
+        currentY += startingY;
     }
 }

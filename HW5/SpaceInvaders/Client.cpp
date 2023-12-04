@@ -12,6 +12,10 @@
 #include "Bullet.h"
 #include "EnemyGrid.h"
 #include "EnemyBullet.h"
+#include <v8.h>
+#include "ScriptManager.h"
+#include <libplatform/libplatform.h>
+#include "v8helpers.h"
 
 std::mutex *enemyMutex;
 std::mutex *enemyBulletMutex;
@@ -23,6 +27,18 @@ std::vector<std::string> parseMessage(std::string strToParse){
     return words;
 }
 
+// void ScriptEventGenerator(const v8::FunctionCallbackInfo<v8::Value>& args){
+// 	v8::Isolate *isolate = args.GetIsolate();
+// 	v8::Local<v8::Context> context = isolate->GetCurrentContext();
+// 	v8::EscapableHandleScope handle_scope(args.GetIsolate());
+// 	v8::Context::Scope context_scope(context);
+
+//     std::shared_ptr<Event> dm = std::make_shared<CollisionEvent>(gameTime.getTime(), LOW, 8, 7);
+//     eventManager->addToQueue(dm);
+//     //v8::Local<v8::Object> v8_obj = std::dynamic_pointer_cast<DeathEvent>(dm)->exposeToV8(isolate, context);
+// 	//args.GetReturnValue().Set(handle_scope.Escape(v8_obj));
+// }
+
 void recieveEnemyInstructions(EnemyGrid* en, std::vector<std::shared_ptr<EnemyBullet>>* enemyBullets){
     //connect to server
     zmq::context_t context (1);
@@ -32,7 +48,6 @@ void recieveEnemyInstructions(EnemyGrid* en, std::vector<std::shared_ptr<EnemyBu
     while(true){
         zmq::message_t aiMessage(10);
         zmq::recv_result_t r = enemyListner.recv(aiMessage, zmq::recv_flags::none);
-        std::cout << "msg: " << aiMessage.to_string() << std::endl;
 
         std::vector<std::string> params = parseMessage(aiMessage.to_string());
 
@@ -139,189 +154,230 @@ int main(){
 
     std::thread enemyAIthread(recieveEnemyInstructions, enemies, &enemyBullets);
 
-    while(window.isOpen()){
-    
-        // check all the window's events that were triggered since the last iteration of the loop
-        sf::Event event;
-        while (window.pollEvent(event))
-        {
-            if (event.type == sf::Event::Closed)
-                window.close();
+    //INITALIZE SCRIPTING
+    std::unique_ptr<v8::Platform> platform = v8::platform::NewDefaultPlatform();
+    v8::V8::InitializePlatform(platform.release());
+    v8::V8::InitializeICU();
+    v8::V8::Initialize();
+    v8::Isolate::CreateParams create_params;
+    create_params.array_buffer_allocator = v8::ArrayBuffer::Allocator::NewDefaultAllocator();
+    v8::Isolate *isolate = v8::Isolate::New(create_params);
 
-            if (event.type == sf::Event::KeyPressed){
-                if(event.key.code == sf::Keyboard::Space){
-                    std::shared_ptr<Bullet> b = std::make_shared<Bullet>(player->getPosition().x);
-                    bullets.push_back(b);
-                }
-                else if(event.key.code == sf::Keyboard::P){
-                    if(gameTime.isPaused()){
-                        int64_t elapsedTime = gameTime.unpause();
+    {
+        v8::Isolate::Scope isolate_scope(isolate); // must enter the virtual machine to do stuff
+        v8::HandleScope handle_scope(isolate);
+
+        // Best practice to isntall all global functions in the context ahead of time.
+        v8::Local<v8::ObjectTemplate> global = v8::ObjectTemplate::New(isolate);
+
+        // Bind the global 'print' function to the C++ Print callback.
+        global->Set(isolate, "print", v8::FunctionTemplate::New(isolate, v8helpers::Print));
+        
+        // Bind the global static function for retrieving object handles
+        global->Set(isolate, "gethandle", v8::FunctionTemplate::New(isolate, ScriptManager::getHandleFromScript));
+
+		//global->Set(isolate, "eventFactory", v8::FunctionTemplate::New(isolate, ScriptEventGenerator));
+
+
+        v8::Local<v8::Context> default_context =  v8::Context::New(isolate, NULL, global);
+        v8::Context::Scope default_context_scope(default_context); // enter the context
+
+        ScriptManager *sm = new ScriptManager(isolate, default_context); 
+
+        //Create Player Context
+        v8::Local<v8::Context> player_context = v8::Context::New(isolate, NULL, global);
+		sm->addContext(isolate, player_context, "player_context");
+
+        player->exposeToV8(isolate, player_context);
+        sm->addScript("change_color", "scripts/change_color.js", "player_context");
+
+        while(window.isOpen()){
+        
+            // check all the window's events that were triggered since the last iteration of the loop
+            sf::Event event;
+            while (window.pollEvent(event))
+            {
+                if (event.type == sf::Event::Closed)
+                    window.close();
+
+                if (event.type == sf::Event::KeyPressed){
+                    if(event.key.code == sf::Keyboard::Space){
+                        std::shared_ptr<Bullet> b = std::make_shared<Bullet>(player->getPosition().x);
+                        bullets.push_back(b);
+                    }
+                    else if(event.key.code == sf::Keyboard::P){
+                        if(gameTime.isPaused()){
+                            int64_t elapsedTime = gameTime.unpause();
+                            lastTime = gameTime.getTime();
+                        }
+                        else{
+                            gameTime.pause(lastTime);
+                        }  
+                    }
+                    else if(event.key.code == sf::Keyboard::Z){
+                        gameTime.changeTic(TIC_HALF);
                         lastTime = gameTime.getTime();
                     }
+                    else if(event.key.code == sf::Keyboard::X){
+                        gameTime.changeTic(TIC_NORMAL);
+                        lastTime = gameTime.getTime();
+                    }
+                    else if(event.key.code == sf::Keyboard::C){
+                        gameTime.changeTic(TIC_TWO_TIMES);
+                        lastTime = gameTime.getTime();
+                    }
+                }
+            }
+            window.clear();
+            
+            //scripts
+            sm->runOne("change_color", false, "player_context");
+
+            int64_t currentTime = gameTime.getTime();
+            int64_t frameDelta = currentTime - lastTime;
+            lastTime = currentTime;
+
+            if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
+                std::shared_ptr<MovementEvent> e = std::make_shared<MovementEvent>(currentTime, HIGH, 'A', frameDelta);
+                eventManager->addToQueue(e);
+            }
+            if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
+                std::shared_ptr<MovementEvent> e = std::make_shared<MovementEvent>(currentTime, HIGH, 'D', frameDelta);
+                eventManager->addToQueue(e);
+            }
+
+            //move bullets and check for collisions with enemies
+            for(auto it = bullets.begin(); it != bullets.end();){
+                if((*it)->getPosition().y < 0){
+                    it = bullets.erase(it);
+                }
+                else{
+                    bool removed = false;
+                    std::lock_guard<std::mutex> lock(*enemyMutex);
+                    for(std::vector<Enemy*> row : enemies->enemyGrid){
+                        for(Enemy* e : row){
+                            if(!e->dead && (*it)->getGlobalBounds().intersects(e->getGlobalBounds())){
+                                int row = e->row;
+                                int col = e->col;
+                                std::shared_ptr<EnemyDeathEvent> e = std::make_shared<EnemyDeathEvent>(currentTime, HIGH, row, col);
+                                eventManager->addToQueue(e);
+                                it = bullets.erase(it);
+                                removed = true;
+                            }
+                        }
+                    }
+                    if(!removed){
+                        (*it)->moveBullet(frameDelta);
+                        ++it;
+                    }
+                }
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(*enemyBulletMutex);
+                for(auto it = enemyBullets.begin(); it != enemyBullets.end();){
+                    if((*it)->getGlobalBounds().intersects(player->getGlobalBounds())){
+                        player->lives--;
+                        it = enemyBullets.erase(it);
+                    }
+                    else if((*it)->getPosition().y > SCENE_HEIGHT){
+                        it = enemyBullets.erase(it);
+                    }
                     else{
-                        gameTime.pause(lastTime);
-                    }  
-                }
-                else if(event.key.code == sf::Keyboard::Z){
-                    gameTime.changeTic(TIC_HALF);
-                    lastTime = gameTime.getTime();
-                }
-                else if(event.key.code == sf::Keyboard::X){
-                    gameTime.changeTic(TIC_NORMAL);
-                    lastTime = gameTime.getTime();
-                }
-                else if(event.key.code == sf::Keyboard::C){
-                    gameTime.changeTic(TIC_TWO_TIMES);
-                    lastTime = gameTime.getTime();
+                        (*it)->moveBullet(frameDelta);
+                        ++it; 
+                    }
                 }
             }
-        }
-        window.clear();
 
-        int64_t currentTime = gameTime.getTime();
-        int64_t frameDelta = currentTime - lastTime;
-        lastTime = currentTime;
 
-        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
-            std::shared_ptr<MovementEvent> e = std::make_shared<MovementEvent>(currentTime, HIGH, 'A', frameDelta);
-            eventManager->addToQueue(e);
-        }
-        if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
-            std::shared_ptr<MovementEvent> e = std::make_shared<MovementEvent>(currentTime, HIGH, 'D', frameDelta);
-            eventManager->addToQueue(e);
-        }
-
-        //move bullets and check for collisions with enemies
-        for(auto it = bullets.begin(); it != bullets.end();){
-            if((*it)->getPosition().y < 0){
-                it = bullets.erase(it);
+            //move enemies
+            {
+                std::lock_guard<std::mutex> lock(*enemyMutex);
+                enemies->moveEnemies(frameDelta);
             }
-            else{
-                bool removed = false;
+
+            //process events
+            {
+                std::lock_guard<std::mutex> lock(eventManager->mutex);
+                while(!eventManager->eventQueueHigh.empty() && eventManager->eventQueueHigh.top()->timeStamp <= gameTime.getTime()){
+                    std::shared_ptr<Event> ev = eventManager->eventQueueHigh.top();
+                    for(EventHandler* h : eventManager->handlers[ev->eventType]){
+                        h->onEvent(ev);
+                    }
+                    eventManager->eventQueueHigh.pop();
+                }
+                while(!eventManager->eventQueueMedium.empty() && eventManager->eventQueueMedium.top()->timeStamp <= gameTime.getTime()){
+                    std::shared_ptr<Event> ev = eventManager->eventQueueMedium.top();
+                    for(EventHandler* h : eventManager->handlers[ev->eventType]){
+                        h->onEvent(ev);
+                    }
+                    eventManager->eventQueueMedium.pop();
+                }
+                while(!eventManager->eventQueueLow.empty() && eventManager->eventQueueLow.top()->timeStamp <= gameTime.getTime()){
+                    std::shared_ptr<Event> ev = eventManager->eventQueueLow.top();
+                    for(EventHandler* h : eventManager->handlers[ev->eventType]){
+                        h->onEvent(ev);
+                    }
+                    eventManager->eventQueueLow.pop();
+                }
+            }
+
+            if(player->lives != 0){
+                window.draw(*player);
+            }
+            for(std::shared_ptr<Bullet> b : bullets){
+                window.draw(*b);
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(*enemyBulletMutex);
+                for(std::shared_ptr<EnemyBullet> b : enemyBullets){
+                    window.draw(*b);
+                }
+            }
+
+
+            //draw enemies
+            {
                 std::lock_guard<std::mutex> lock(*enemyMutex);
                 for(std::vector<Enemy*> row : enemies->enemyGrid){
                     for(Enemy* e : row){
-                        if(!e->dead && (*it)->getGlobalBounds().intersects(e->getGlobalBounds())){
-                            int row = e->row;
-                            int col = e->col;
-                            std::shared_ptr<EnemyDeathEvent> e = std::make_shared<EnemyDeathEvent>(currentTime, HIGH, row, col);
-                            eventManager->addToQueue(e);
-                            it = bullets.erase(it);
-                            removed = true;
+                        if(!e->dead){
+                            window.draw(*e);
                         }
                     }
                 }
-                if(!removed){
-                    (*it)->moveBullet(frameDelta);
-                    ++it;
-                }
             }
-        }
 
-        {
-            std::lock_guard<std::mutex> lock(*enemyBulletMutex);
-            for(auto it = enemyBullets.begin(); it != enemyBullets.end();){
-                if((*it)->getGlobalBounds().intersects(player->getGlobalBounds())){
-                    player->lives--;
-                    it = enemyBullets.erase(it);
-                }
-                else if((*it)->getPosition().y > SCENE_HEIGHT){
-                    it = enemyBullets.erase(it);
-                }
-                else{
-                    (*it)->moveBullet(frameDelta);
-                    ++it; 
-                }
+
+            //draw lives 
+            window.draw(livesText);
+            lifeMarker.setPosition(sf::Vector2f(70, 570));
+            for(int i = 0; i < player->lives; i++){
+                window.draw(lifeMarker);
+                lifeMarker.setPosition(lifeMarker.getPosition().x + 40, lifeMarker.getPosition().y);
             }
-        }
 
+            scoreText.setString("Score: " + std::to_string(player->score));
+            window.draw(scoreText);
 
-        //move enemies
-        {
-            std::lock_guard<std::mutex> lock(*enemyMutex);
-            enemies->moveEnemies(frameDelta);
-        }
-
-        //process events
-        {
-            std::lock_guard<std::mutex> lock(eventManager->mutex);
-            while(!eventManager->eventQueueHigh.empty() && eventManager->eventQueueHigh.top()->timeStamp <= gameTime.getTime()){
-                std::shared_ptr<Event> ev = eventManager->eventQueueHigh.top();
-                for(EventHandler* h : eventManager->handlers[ev->eventType]){
-                    h->onEvent(ev);
-                }
-                eventManager->eventQueueHigh.pop();
+            if(player->lives == 0){
+                gameTime.pause(lastTime);
+                endText.setString("Game Over");
+                endText.setFillColor(sf::Color(255, 0, 0));
+                window.draw(endText);
             }
-            while(!eventManager->eventQueueMedium.empty() && eventManager->eventQueueMedium.top()->timeStamp <= gameTime.getTime()){
-                std::shared_ptr<Event> ev = eventManager->eventQueueMedium.top();
-                for(EventHandler* h : eventManager->handlers[ev->eventType]){
-                    h->onEvent(ev);
-                }
-                eventManager->eventQueueMedium.pop();
+            else if(enemies->numAlive == 0){
+                gameTime.pause(lastTime);
+                endText.setString("You Win!");
+                endText.setFillColor(sf::Color(0, 255, 0));
+                window.draw(endText);
             }
-            while(!eventManager->eventQueueLow.empty() && eventManager->eventQueueLow.top()->timeStamp <= gameTime.getTime()){
-                std::shared_ptr<Event> ev = eventManager->eventQueueLow.top();
-                for(EventHandler* h : eventManager->handlers[ev->eventType]){
-                    h->onEvent(ev);
-                }
-                eventManager->eventQueueLow.pop();
-            }
+
+            window.display();
+
         }
-
-        if(player->lives != 0){
-            window.draw(*player);
-        }
-        for(std::shared_ptr<Bullet> b : bullets){
-            window.draw(*b);
-        }
-
-        {
-            std::lock_guard<std::mutex> lock(*enemyBulletMutex);
-            for(std::shared_ptr<EnemyBullet> b : enemyBullets){
-                window.draw(*b);
-            }
-        }
-
-
-        //draw enemies
-        {
-            std::lock_guard<std::mutex> lock(*enemyMutex);
-            for(std::vector<Enemy*> row : enemies->enemyGrid){
-                for(Enemy* e : row){
-                    if(!e->dead){
-                        window.draw(*e);
-                    }
-                }
-            }
-        }
-
-
-        //draw lives 
-        window.draw(livesText);
-        lifeMarker.setPosition(sf::Vector2f(70, 570));
-        for(int i = 0; i < player->lives; i++){
-            window.draw(lifeMarker);
-            lifeMarker.setPosition(lifeMarker.getPosition().x + 40, lifeMarker.getPosition().y);
-        }
-
-        scoreText.setString("Score: " + std::to_string(player->score));
-        window.draw(scoreText);
-
-        if(player->lives == 0){
-            gameTime.pause(lastTime);
-            endText.setString("Game Over");
-            endText.setFillColor(sf::Color(255, 0, 0));
-            window.draw(endText);
-        }
-        else if(enemies->numAlive == 0){
-            gameTime.pause(lastTime);
-            endText.setString("You Win!");
-            endText.setFillColor(sf::Color(0, 255, 0));
-            window.draw(endText);
-        }
-
-        window.display();
-
     }
 
 }

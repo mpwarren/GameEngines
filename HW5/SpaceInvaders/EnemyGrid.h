@@ -27,6 +27,7 @@ class EnemyGrid{
         std::string toString();
         void killEnemy(int row, int col);
         void moveEnemies(int64_t frameDelta);
+        void createEnemies();
 
     private:
         std::string direction;

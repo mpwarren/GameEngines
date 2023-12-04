@@ -24,13 +24,15 @@ void enemyAI(EnemyGrid *enemies){
     zmq::socket_t enemySender (context, zmq::socket_type::push);
     enemySender.bind("tcp://*:5557");
     
-    std::random_device rd; // obtain a random number from hardware
-    std::mt19937 gen(rd()); // seed the generator
+    std::random_device rd; 
+    std::mt19937 gen(rd());
     std::uniform_int_distribution<> distr(0, enemies->width - 1);
     
     while(true){
         int colToShoot = distr(gen);
         int rowToShoot = enemies->height-1;
+
+        //find the lowest enemy in the row
         while(rowToShoot != -1 && enemies->enemyGrid[rowToShoot][colToShoot]->dead){
             rowToShoot--;
         }
@@ -132,6 +134,8 @@ int main(){
         //wait for client request
         zmq::message_t pm;
         zmq::recv_result_t r = playerConnectionSocket.recv(pm, zmq::recv_flags::none);
+
+        enemies->createEnemies();
 
         //send world to player
         zmq::message_t newResponse(std::to_string(player.id).length());
