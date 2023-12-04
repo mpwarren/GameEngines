@@ -75,6 +75,11 @@ int main(){
     scoreText.setCharacterSize(20);
     scoreText.setPosition(650, 10);
 
+    sf::Text endText;
+    endText.setFont(font);
+    endText.setCharacterSize(40);
+    endText.setPosition(SCENE_WIDTH / 2 - 100, SCENE_HEIGHT / 2 - 20);
+
     sf::RectangleShape lifeMarker(sf::Vector2f(20, 20));
     lifeMarker.setFillColor(sf::Color(255, 0, 0));
     EnemyGrid *enemies;
@@ -147,6 +152,27 @@ int main(){
                 if(event.key.code == sf::Keyboard::Space){
                     std::shared_ptr<Bullet> b = std::make_shared<Bullet>(player->getPosition().x);
                     bullets.push_back(b);
+                }
+                else if(event.key.code == sf::Keyboard::P){
+                    if(gameTime.isPaused()){
+                        int64_t elapsedTime = gameTime.unpause();
+                        lastTime = gameTime.getTime();
+                    }
+                    else{
+                        gameTime.pause(lastTime);
+                    }  
+                }
+                else if(event.key.code == sf::Keyboard::Z){
+                    gameTime.changeTic(TIC_HALF);
+                    lastTime = gameTime.getTime();
+                }
+                else if(event.key.code == sf::Keyboard::X){
+                    gameTime.changeTic(TIC_NORMAL);
+                    lastTime = gameTime.getTime();
+                }
+                else if(event.key.code == sf::Keyboard::C){
+                    gameTime.changeTic(TIC_TWO_TIMES);
+                    lastTime = gameTime.getTime();
                 }
             }
         }
@@ -242,7 +268,9 @@ int main(){
             }
         }
 
-        window.draw(*player);
+        if(player->lives != 0){
+            window.draw(*player);
+        }
         for(std::shared_ptr<Bullet> b : bullets){
             window.draw(*b);
         }
@@ -278,6 +306,19 @@ int main(){
 
         scoreText.setString("Score: " + std::to_string(player->score));
         window.draw(scoreText);
+
+        if(player->lives == 0){
+            gameTime.pause(lastTime);
+            endText.setString("Game Over");
+            endText.setFillColor(sf::Color(255, 0, 0));
+            window.draw(endText);
+        }
+        else if(enemies->numAlive == 0){
+            gameTime.pause(lastTime);
+            endText.setString("You Win!");
+            endText.setFillColor(sf::Color(0, 255, 0));
+            window.draw(endText);
+        }
 
         window.display();
 
