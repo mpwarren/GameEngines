@@ -1,10 +1,15 @@
 Matthew Warren
-CSC481 HW4
+CSC481 HW5
 
-COMPILING:
+Each game is in their respective folder. Go into those directories then follow the instructions below.
+
+COMPILING (same for both games):
 - In the parent folder where this file is, call make to compile everything
 
-RUNNING:
+---------------------------PLATFORMER INSTRUCTIONS----------------------------------
+
+
+RUNNING (same for both games):
 - Start the server first with ./server
 - Then run any clients with ./client
 
@@ -13,10 +18,45 @@ CONTROLS:
 - D: Move right
 - Left Shift + (A or D): Sprint left/right
 - W: Jump
+- P: pause (only paused that clients player)
+- Z: 1/2 player speed (changes tic)
+- X: normal player speed (changes tic)
+- C: double player speed (changes tic)
 
 GAMEPLAY:
 - The clients character is marked with grey, all other clients on the network are white
 - Death zones are marked in red. Any player that hits them will reset the level
+
+
+---------------------------------------------------------------------------------------
+
+
+-------------------------SPACE INVADERS INSTRUCTIONS--------------------------------
+
+
+RUNNING (same for both games):
+- Start the server first with ./server
+- Then run a clients with ./client
+- Only 1 client can be connected at the time
+
+CONTROLS:
+- A: Move Left
+- D: Move right
+- Space: shoot
+- P: Pause
+- Z: 1/2 player speed (changes tic)
+- X: normal speed (changes tic)
+- C: double speed (changes tic)
+
+GAMEPLAY:
+- You have 3 lives to destroy all enemies
+- The game ends when you run out of lives or kill all enemies
+- The client must be restarted after each game, but the server can stay running
+- There is a script in place to give you an extra life when there are 4 enimes left.
+
+
+---------------------------------------------------------------------------------------
+
 
 ACKNOWLEDGEMENTS:
 - Scripting code and Makefile adapted from: https://github.ncsu.edu/dlrober4/v8-gamengine-example/tree/main

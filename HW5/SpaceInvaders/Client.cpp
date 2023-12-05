@@ -39,11 +39,9 @@ void ScriptEventGenerator(const v8::FunctionCallbackInfo<v8::Value>& args){
 	v8::EscapableHandleScope handle_scope(args.GetIsolate());
 	v8::Context::Scope context_scope(context);
 
-    std::cout << "adding event\n";
 
     std::shared_ptr<Event> e = std::make_shared<GainLifeEvent>(gameTime.getTime(), LOW);
     eventManager->addToQueue(e, false);
-    std::cout << "in queue\n";
     //v8::Local<v8::Object> v8_obj = std::dynamic_pointer_cast<DeathEvent>(dm)->exposeToV8(isolate, context);
 	//args.GetReturnValue().Set(handle_scope.Escape(v8_obj));
 }
@@ -312,7 +310,6 @@ int main(){
 
             //process events
             {
-                std::cout << "Waiting to process event\n";
                 std::lock_guard<std::mutex> lock(eventManager->mutex);
                 while(!eventManager->eventQueueHigh.empty() && eventManager->eventQueueHigh.top()->timeStamp <= gameTime.getTime()){
                     std::shared_ptr<Event> ev = eventManager->eventQueueHigh.top();
@@ -336,7 +333,6 @@ int main(){
                     eventManager->eventQueueLow.pop();
                 }
             }
-            std::cout << "events processed\n";
 
             if(player->lives != 0){
                 window.draw(*player);

@@ -39,10 +39,8 @@ void EnemyHandler::onEvent(std::shared_ptr<Event> e){
         zmq::message_t eventMsg(size);
         memcpy(eventMsg.data(), enemyDeathEvent->toString().c_str(), size);
         serverEventSender->send(eventMsg, zmq::send_flags::none);
-        std::cout << "waiting on enemy mutex\n";
         std::lock_guard<std::mutex> lock(*enemyMutex);
         enemies->killEnemy(enemyDeathEvent->row, enemyDeathEvent->col);
-        std::cout << "out of enemy mutex\n";
     }
 }
 
@@ -59,7 +57,7 @@ void ServerHandler::onEvent(std::shared_ptr<Event> e){
     }
 }
 
-ScriptHandler::ScriptHandler(ScriptManager * manager){
+ScriptHandler::ScriptHandler(ScriptManager * manager) : sm{manager}{
 
 }
 

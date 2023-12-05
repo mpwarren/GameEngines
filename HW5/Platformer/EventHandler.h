@@ -5,6 +5,7 @@
 #include <mutex>
 #include <zmq.hpp>
 #include "Timeline.h"
+#include "ScriptManager.h"
 
 class EventHandler{
     public:
@@ -36,6 +37,13 @@ class ClientWorldHandler : public EventHandler{
         void onEvent(std::shared_ptr<Event> e) override;
         int clientId;
 
+};
+
+class ScriptHandler : public EventHandler{
+    public:
+        ScriptHandler(std::mutex* m, std::map<int, CollidableObject*>* go, ScriptManager * manager);
+        ScriptManager * sm;
+        void onEvent(std::shared_ptr<Event> e) override;
 };
 
 #endif

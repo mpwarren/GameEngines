@@ -90,7 +90,7 @@ void Player::setColor(v8::Local<v8::String> property, v8::Local<v8::Value> value
     v8::Local<v8::Object> self = info.Holder();
     v8::Local<v8::External> wrap = v8::Local<v8::External>::Cast(self->GetInternalField(0));
 	void* ptr = wrap->Value();
-	static_cast<Player*>(ptr)->setFillColor(sf::Color(value->Int32Value(), 255, 255));
+	static_cast<Player*>(ptr)->setFillColor(sf::Color(value->Int32Value(), 0, 0));
 }
 
 void Player::getColor(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value>& info){

@@ -1,0 +1,1 @@
+thisPlayer.colorR = 255;

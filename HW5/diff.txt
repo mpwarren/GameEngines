@@ -1,0 +1,1557 @@
+Only in SpaceInvaders: Bullet.cpp
+Only in SpaceInvaders: Bullet.h
+Only in SpaceInvaders: Bullet.o
+diff -rw Platformer/Client.cpp SpaceInvaders/Client.cpp
+2,6c2,3
+< #include "GameShapes/CollidableObject.h"
+< #include "GameShapes/Platform.h"
+< #include "GameShapes/MovingPlatform.h"
+< #include "GameShapes/Player.h"
+< #include "GameShapes/SideBoundry.h"
+---
+> #include "CollidableObject.h"
+> #include "Player.h"
+11,12d7
+< #include "SpawnPoint.h"
+< #include "GameShapes/DeathZone.h"
+16a12,14
+> #include "Bullet.h"
+> #include "EnemyGrid.h"
+> #include "EnemyBullet.h"
+21a20,21
+> std::mutex *enemyMutex;
+> std::mutex *enemyBulletMutex;
+23,24c23
+< std::mutex dataMutex;
+< EventManager *eventManager = new EventManager();
+---
+> //create timelines
+28,38c27
+< void ScriptEventGenerator(const v8::FunctionCallbackInfo<v8::Value>& args){
+< 	v8::Isolate *isolate = args.GetIsolate();
+< 	v8::Local<v8::Context> context = isolate->GetCurrentContext();
+< 	v8::EscapableHandleScope handle_scope(args.GetIsolate());
+< 	v8::Context::Scope context_scope(context);
+< 
+<     std::shared_ptr<Event> dm = std::make_shared<CollisionEvent>(gameTime.getTime(), LOW, 8, 7);
+<     eventManager->addToQueue(dm);
+<     //v8::Local<v8::Object> v8_obj = std::dynamic_pointer_cast<DeathEvent>(dm)->exposeToV8(isolate, context);
+< 	//args.GetReturnValue().Set(handle_scope.Escape(v8_obj));
+< }
+---
+> EventManager *eventManager = new EventManager();
+47,66c36,40
+< void heartbeat(int id){
+<     //Connect to server
+<     zmq::context_t context (1);
+<     zmq::socket_t heartbeatSocket (context, zmq::socket_type::push);
+<     heartbeatSocket.connect ("tcp://localhost:5561");
+<     std::string idString = std::to_string(id);
+<     int strLen = idString.length();
+< 
+< 
+<     while(true){
+<         zmq::message_t idMessage(strLen);
+<         memcpy(idMessage.data(), idString.c_str(), strLen);
+< 
+<         heartbeatSocket.send(idMessage, zmq::send_flags::none);
+< 
+<         sleep(2);
+<     }
+< 
+< 
+< }
+---
+> void ScriptEventGenerator(const v8::FunctionCallbackInfo<v8::Value>& args){
+> 	v8::Isolate *isolate = args.GetIsolate();
+> 	v8::Local<v8::Context> context = isolate->GetCurrentContext();
+> 	v8::EscapableHandleScope handle_scope(args.GetIsolate());
+> 	v8::Context::Scope context_scope(context);
+68,73c42
+< void platformMovement(std::map<int, CollidableObject*>* gameObjects, Player* thisPlayer){
+<     //  Prepare our context and socket
+<     zmq::context_t context (1);
+<     zmq::socket_t platformReciever (context, zmq::socket_type::sub);
+<     platformReciever.connect ("tcp://localhost:5555");
+<     platformReciever.setsockopt(ZMQ_SUBSCRIBE, "", 0);
+---
+>     std::cout << "adding event\n";
+75,88c44,48
+<     while(true){
+<         zmq::message_t positionUpdate;
+<         //std::cout <<"WAITING ON PLATFORM UPDATE" << std::endl;
+<         zmq::recv_result_t r = platformReciever.recv(positionUpdate, zmq::recv_flags::none);
+<         std::vector<std::string> words = parseMessage(positionUpdate.to_string());
+<         int id = stoi(words[0]);
+<         if(id != thisPlayer->id){
+<             std::lock_guard<std::mutex> lock(dataMutex);
+<             //std::cout << "SETTING1: " << positionUpdate << std::endl;
+<             if(gameObjects->count(id) == 1){
+<                 gameObjects->at(stoi(words[0]))->setPosition(sf::Vector2f(stof(words[1]), stof(words[2])));
+<             }
+<         }
+<     }
+---
+>     std::shared_ptr<Event> e = std::make_shared<GainLifeEvent>(gameTime.getTime(), LOW);
+>     eventManager->addToQueue(e, false);
+>     std::cout << "in queue\n";
+>     //v8::Local<v8::Object> v8_obj = std::dynamic_pointer_cast<DeathEvent>(dm)->exposeToV8(isolate, context);
+> 	//args.GetReturnValue().Set(handle_scope.Escape(v8_obj));
+91,92c51,52
+< //listen for events published by the server
+< void eventListner(EventManager * em, Timeline * timeline){
+---
+> void recieveEnemyInstructions(EnemyGrid* en, std::vector<std::shared_ptr<EnemyBullet>>* enemyBullets){
+>     //connect to server
+94,96c54,55
+<     zmq::socket_t eventListner(context, zmq::socket_type::sub);
+<     eventListner.connect("tcp://localhost:5559");
+<     eventListner.setsockopt(ZMQ_SUBSCRIBE, "", 0);
+---
+>     zmq::socket_t enemyListner (context, zmq::socket_type::pull);
+>     enemyListner.connect ("tcp://localhost:5557");
+99,102c58,59
+<         zmq::message_t eventMessage;
+<         zmq::recv_result_t r = eventListner.recv(eventMessage, zmq::recv_flags::none);
+< 
+<         //std::cout << "EVENT MESSAGE: " << eventMessage.to_string() << std::endl;
+---
+>         zmq::message_t aiMessage(10);
+>         zmq::recv_result_t r = enemyListner.recv(aiMessage, zmq::recv_flags::none);
+104c61
+<         std::vector<std::string> params = parseMessage(eventMessage.to_string());
+---
+>         std::vector<std::string> params = parseMessage(aiMessage.to_string());
+106,117c63,68
+<         EventType t = (EventType)stoi(params[0]);
+< 
+<         if(t == ADD_OTHER_PLAYER){
+< 
+<             std::string playerString = "";
+<             for(int i = 3; i <= 11; i++ ){
+<                 playerString += params[i] + " ";
+<             }
+< 
+<             std::shared_ptr<AddOtherPlayerEvent> e = std::make_shared<AddOtherPlayerEvent>(timeline->getTime(), (Priority)stoi(params[2]), playerString);
+<             //std::cout << "ADDED NEW PLAYER EVENT TO QUEUE: " << e->toString() << std::endl;
+<             em->addToQueue(e);
+---
+>         if(params[0] == "S"){
+>             std::shared_ptr<EnemyBullet> b;
+>             {
+>                 std::lock_guard<std::mutex> lock(*enemyMutex);
+>                 Enemy * enemy = en->enemyGrid[stoi(params[1])][stoi(params[2])];
+>                 b = std::make_shared<EnemyBullet>(enemy->getPosition().x + (enemy->getSize().x / 2), enemy->getPosition().y);
+119,121c70,72
+<         else if(t == DEATH_EVENT){
+<             std::shared_ptr<DeathEvent> e = std::make_shared<DeathEvent>(timeline->getTime(), (Priority)stoi(params[2]));
+<             em->addToQueue(e);
+---
+>             {
+>                 std::lock_guard<std::mutex> lock(*enemyBulletMutex);
+>                 enemyBullets->push_back(b);
+123,125d73
+<         else if(t == TRANSLATE){
+<             std::shared_ptr<TranslationEvent> e = std::make_shared<TranslationEvent>(timeline->getTime(), (Priority)stoi(params[2]), params[3][0], stoi(params[4]), stoi(params[5]));
+<             em->addToQueue(e);
+127,129d74
+<         else if(t == REMOVE_PLAYER){
+<             std::shared_ptr<RemovePlayerEvent> e = std::make_shared<RemovePlayerEvent>(timeline->getTime(), (Priority)stoi(params[2]),stoi(params[3]));
+<             em->addToQueue(e);
+133,136d77
+< 
+< }
+< 
+< 
+139,145c80,109
+<     //set spawnpoint to a base value for now so player can be made
+<     SpawnPoint sp(sf::Vector2f(0,0), sf::Vector2f(0,0));
+< 
+<     std::map<int, CollidableObject*> gameObjects;
+<     std::vector<CollidableObject*> collidableObjects;
+<     std::vector<DeathZone*> deathZones;
+<     std::vector<Player*> otherPlayers;
+---
+>     //mutexes
+>     enemyMutex = new std::mutex();
+>     enemyBulletMutex = new std::mutex();
+> 
+>     //game objects and data structures
+>     Player * player;
+>     std::vector<std::shared_ptr<Bullet>> bullets;
+>     std::vector<std::shared_ptr<EnemyBullet>> enemyBullets;
+> 
+>     sf::Text livesText;
+>     livesText.setString("Lives:");
+>     sf::Font font;
+>     font.loadFromFile("Roboto-Black.ttf");
+>     livesText.setFont(font);
+>     livesText.setCharacterSize(20);
+>     livesText.setPosition(10, 560);
+> 
+>     sf::Text scoreText;
+>     scoreText.setFont(font);
+>     scoreText.setCharacterSize(20);
+>     scoreText.setPosition(650, 10);
+> 
+>     sf::Text endText;
+>     endText.setFont(font);
+>     endText.setCharacterSize(40);
+>     endText.setPosition(SCENE_WIDTH / 2 - 100, SCENE_HEIGHT / 2 - 20);
+> 
+>     sf::RectangleShape lifeMarker(sf::Vector2f(20, 20));
+>     lifeMarker.setFillColor(sf::Color(255, 0, 0));
+>     EnemyGrid *enemies;
+147,148c111,112
+<     //Connect to server
+<     zmq::context_t context (3);
+---
+>     //connect to server
+>     zmq::context_t context (1);
+152,156c116
+<     zmq::socket_t eventSender(context, zmq::socket_type::push);
+<     eventSender.connect("tcp://localhost:5560");
+< 
+<     zmq::message_t newConnection(2);
+<     memcpy(newConnection.data(), NEW_PLAYER_SIGN.c_str(), 2);
+---
+>     zmq::message_t newConnection(0);
+159c119
+<     //Get Id and create player object
+---
+>     //get id
+166,167c126
+<     int numPlatforms = 0;
+<     std::vector<sf::Color> platformColors{ sf::Color(252, 186, 3), sf::Color(53, 252, 3), sf::Color(3, 78, 252)};
+---
+>     //get game objects from server
+174c133
+<         if(params[0] == PLATFORM_ID){
+---
+>         if(params[0] == PLAYER_ID){
+176,180c135
+<             Platform* pt = new Platform(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
+<             pt->setFillColor(platformColors[numPlatforms % platformColors.size()]);
+<             numPlatforms++;
+<             gameObjects[id] = pt;
+<             collidableObjects.push_back(pt);
+---
+>             player = new Player(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), params[6]);
+182,203c137,138
+<         else if(params[0] == MOVING_PLATFORM_ID){
+<             int id = stoi(params[1]);
+<             MovingPlatform* mp = new MovingPlatform(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8], (Direction)stoi(params[9]), stof(params[10]), stoi(params[11]));
+<             gameObjects[id] = mp;
+<             collidableObjects.push_back(mp);
+<         }
+<         else if(params[0] == PLAYER_ID){
+<             int id = stoi(params[1]);
+<             gameObjects[id] = new Player(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
+<             if(id != thisId){
+<                 otherPlayers.push_back((Player*)gameObjects[id]);
+<             }
+<         }
+<         else if(params[0] == SPAWN_POINT_ID){
+<             sp = SpawnPoint(sf::Vector2f(stof(params[1]), stof(params[2])), sf::Vector2f(stof(params[3]), stof(params[4])));
+<         }
+<         else if(params[0] == DEATH_ZONE_ID){
+<             int id = stoi(params[1]);
+<             DeathZone* dz = new DeathZone(id, sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
+<             dz->setFillColor(sf::Color(255, 0, 0));
+<             gameObjects[id] = dz;
+<             collidableObjects.push_back(dz);
+---
+>         else if(params[0] == ENEMY_GRID_ID){
+>             enemies = new EnemyGrid(stoi(params[1]), stoi(params[2]), stoi(params[3]));
+213,214c148
+<     Player * thisPlayer = (Player*)gameObjects[thisId];
+<     thisPlayer->setFillColor(sf::Color(100, 100, 100));
+---
+>     //create event manager and handlers
+216c150,151
+<     sf::RenderWindow window(sf::VideoMode(SCENE_WIDTH, SCENE_HEIGHT), "My Window", sf::Style::Default);
+---
+>     PlayerHandler * playerHandler = new PlayerHandler(player);
+>     eventManager->addHandler(std::vector<EventType>{MOVEMENT_EV, ENEMY_DEATH_EV, GAIN_LIFE_EV}, playerHandler);
+218,221c153,154
+<     //generate side boundry
+<     int distanceFromEdge = 50;
+<     SideBoundry* rightBoundry = new SideBoundry(100, sf::Vector2f(SCENE_WIDTH - distanceFromEdge , -50), sf::Vector2f(SCENE_WIDTH - distanceFromEdge , -50), RIGHT_SIDE);
+<     SideBoundry* leftBoundry = new SideBoundry(101, sf::Vector2f(distanceFromEdge, -50), sf::Vector2f(distanceFromEdge, -50), LEFT_SIDE);
+---
+>     EnemyHandler * enemyHandler = new EnemyHandler(enemies, enemyMutex);
+>     eventManager->addHandler(std::vector<EventType>{ENEMY_DEATH_EV}, enemyHandler);
+223,225d155
+<     Timeline anchorTimeline;
+<     Timeline gameTime(&anchorTimeline);
+<     int64_t lastTime = gameTime.getTime();
+227,236c157,158
+<     //create event Handlers
+<     PlayerHandler * playerHandler = new PlayerHandler(&dataMutex, &gameObjects);
+<     ClientWorldHandler * worldHandler = new ClientWorldHandler(&dataMutex, &gameObjects, &gameTime, thisId);
+<     eventManager->addHandler(std::vector<EventType>{INPUT_MOVEMENT, COLLISION_EVENT, GRAVITY, SPAWN_EVENT}, playerHandler);
+<     eventManager->addHandler(std::vector<EventType>{ADD_OTHER_PLAYER, DEATH_EVENT, TRANSLATE, REMOVE_PLAYER}, worldHandler);
+< 
+<     std::thread platformThread(platformMovement, &gameObjects, thisPlayer);
+<     //std::thread playerThread(playerPositionUpdates, &gameObjects, &players, thisId);
+<     std::thread eventListnerThread(eventListner, eventManager, &gameTime);
+<     std::thread heartbeatThread(heartbeat, thisId);
+---
+>     //create sfml window
+>     sf::RenderWindow window(sf::VideoMode(SCENE_WIDTH, SCENE_HEIGHT), "Space Invaders Clone", sf::Style::Default);
+238,239c160,163
+<     //spawn the player
+<     eventManager->addToQueue(std::make_shared<SpawnEvent>(0, HIGH, thisId, &sp));
+---
+> 
+>     int64_t lastTime = gameTime.getTime();
+> 
+>     std::thread enemyAIthread(recieveEnemyInstructions, enemies, &enemyBullets);
+275,280c199,200
+<         //expose player to v8
+<         thisPlayer = (Player*) gameObjects[thisId];
+<         thisPlayer->setOutlineThickness(1);
+<         thisPlayer->exposeToV8(isolate, player_context);
+< 
+<         //ADD SCRIPTS
+---
+>         player->exposeToV8(isolate, player_context);
+>         enemies->exposeToV8(isolate, player_context);
+282,286c202
+<         sm->addScript("check_death_event", "scripts/raise_death_event.js", "player_context");
+<         sm->addScript("death_color", "scripts/death_color.js", "player_context");
+< 
+<         ScriptHandler * scriptHandler = new ScriptHandler(&dataMutex, &gameObjects, sm);
+<         eventManager->addHandler(std::vector<EventType>{DEATH_EVENT}, scriptHandler);
+---
+>         sm->addScript("gain_life", "scripts/gain_life.js", "player_context");
+287a204,205
+>         ScriptHandler * scriptHandler = new ScriptHandler(sm);
+>         eventManager->addHandler(std::vector<EventType>{ENEMY_DEATH_EV}, scriptHandler);
+296a215,242
+> 
+>                 if (event.type == sf::Event::KeyPressed){
+>                     if(event.key.code == sf::Keyboard::Space){
+>                         std::shared_ptr<Bullet> b = std::make_shared<Bullet>(player->getPosition().x);
+>                         bullets.push_back(b);
+>                     }
+>                     else if(event.key.code == sf::Keyboard::P){
+>                         if(gameTime.isPaused()){
+>                             int64_t elapsedTime = gameTime.unpause();
+>                             lastTime = gameTime.getTime();
+>                         }
+>                         else{
+>                             gameTime.pause(lastTime);
+>                         }  
+>                     }
+>                     else if(event.key.code == sf::Keyboard::Z){
+>                         gameTime.changeTic(TIC_HALF);
+>                         lastTime = gameTime.getTime();
+>                     }
+>                     else if(event.key.code == sf::Keyboard::X){
+>                         gameTime.changeTic(TIC_NORMAL);
+>                         lastTime = gameTime.getTime();
+>                     }
+>                     else if(event.key.code == sf::Keyboard::C){
+>                         gameTime.changeTic(TIC_TWO_TIMES);
+>                         lastTime = gameTime.getTime();
+>                     }
+>                 }
+299a246,247
+>             //scripts
+>             sm->runOne("change_color", false, "player_context");
+305,311d252
+<             //std::cout << "RUNNING" << std::to_string(lastTime);
+< 
+<             //MOVEMENT
+<             if(window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
+<                 std::shared_ptr<MovementInputEvent> e = std::make_shared<MovementInputEvent>(currentTime, HIGH, thisId, 'W', frameDelta, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift));
+<                 eventManager->addToQueue(e);
+<             }
+313c254
+<                 std::shared_ptr<MovementInputEvent> e = std::make_shared<MovementInputEvent>(currentTime, HIGH, thisId, 'A', frameDelta, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift));
+---
+>                 std::shared_ptr<MovementEvent> e = std::make_shared<MovementEvent>(currentTime, HIGH, 'A', frameDelta);
+317c258
+<                 std::shared_ptr<MovementInputEvent> e = std::make_shared<MovementInputEvent>(currentTime, HIGH, thisId, 'D', frameDelta, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift));
+---
+>                 std::shared_ptr<MovementEvent> e = std::make_shared<MovementEvent>(currentTime, HIGH, 'D', frameDelta);
+321,328c262,265
+<             //GRAVITY/COLLISIONS/DRAWING
+<             {
+<                 std::unique_lock<std::mutex> lock(dataMutex);
+< 
+<                 if(thisPlayer->gravity(frameDelta)){
+<                     //lock.unlock();
+<                     std::shared_ptr<GravityEvent> e = std::make_shared<GravityEvent>(currentTime, HIGH, thisId);
+<                     eventManager->addToQueue(e);
+---
+>             //move bullets and check for collisions with enemies
+>             for(auto it = bullets.begin(); it != bullets.end();){
+>                 if((*it)->getPosition().y < 0){
+>                     it = bullets.erase(it);
+330,341c267,278
+< 
+<                 //check for translation
+<                 bool shouldTranslate = false;
+<                 char direction;
+<                 if(thisPlayer->checkCollision(leftBoundry)){
+<                     thisPlayer->resolveColision(leftBoundry);
+<                     shouldTranslate = true;
+<                     direction = 'R';
+<                     for(Player * p : otherPlayers){
+<                         if(p->getPosition().x + p->getSize().x >= rightBoundry->getPosition().x){
+<                             shouldTranslate = false;
+<                             break;
+---
+>                 else{
+>                     bool removed = false;
+>                     std::lock_guard<std::mutex> lock(*enemyMutex);
+>                     for(std::vector<Enemy*> row : enemies->enemyGrid){
+>                         for(Enemy* e : row){
+>                             if(!e->dead && (*it)->getGlobalBounds().intersects(e->getGlobalBounds())){
+>                                 int row = e->row;
+>                                 int col = e->col;
+>                                 std::shared_ptr<EnemyDeathEvent> e = std::make_shared<EnemyDeathEvent>(currentTime, HIGH, row, col);
+>                                 eventManager->addToQueue(e);
+>                                 it = bullets.erase(it);
+>                                 removed = true;
+345,352c282,284
+<                 else if(thisPlayer->checkCollision(rightBoundry)){
+<                     thisPlayer->resolveColision(rightBoundry);
+<                     shouldTranslate = true;
+<                     direction = 'L';
+<                     for(Player * p : otherPlayers){
+<                         if(p->getPosition().x <= leftBoundry->getPosition().x + 1){
+<                             shouldTranslate = false;
+<                             break;
+---
+>                     if(!removed){
+>                         (*it)->moveBullet(frameDelta);
+>                         ++it;
+357,362c289,294
+<                 if(shouldTranslate){
+<                     //std::cout << "SENDING TRANSLATE EVENT\n";
+<                     std::string translationEventString = std::to_string(TRANSLATE) + " 0 " + std::to_string(HIGH) + " " + direction + " " + std::to_string(thisId) + " " + std::to_string(frameDelta);
+<                     zmq::message_t translationMessage(translationEventString.length());
+<                     memcpy(translationMessage.data(), translationEventString.c_str(), translationEventString.length());
+<                     eventSender.send(translationMessage, zmq::send_flags::none);
+---
+>             {
+>                 std::lock_guard<std::mutex> lock(*enemyBulletMutex);
+>                 for(auto it = enemyBullets.begin(); it != enemyBullets.end();){
+>                     if((*it)->getGlobalBounds().intersects(player->getGlobalBounds())){
+>                         player->lives--;
+>                         it = enemyBullets.erase(it);
+364,373c296,301
+< 
+< 
+<                 bool collided = false;
+<                 for(CollidableObject * co : collidableObjects){
+<                     if(thisPlayer->checkCollision(co)){
+<                         std::shared_ptr<CollisionEvent> e = std::make_shared<CollisionEvent>(currentTime, MEDIUM, thisId, co->id);
+<                         //lock.unlock();
+<                         collided = true;
+<                         eventManager->addToQueue(e);
+<                         //lock.lock();
+---
+>                     else if((*it)->getPosition().y > SCENE_HEIGHT){
+>                         it = enemyBullets.erase(it);
+>                     }
+>                     else{
+>                         (*it)->moveBullet(frameDelta);
+>                         ++it; 
+376,378d303
+<                 thisPlayer->setColliding(collided);
+<                 if(!collided){
+<                     thisPlayer->setIsCollidingUnder(false);
+381d305
+<                 //std::cout << std::to_string(thisPlayer->getPosition().y + 50) << std::endl;
+383,384c307,311
+<                 sm->runOne("change_color", false, "player_context");
+<                 sm->runOne("check_death_event", false, "player_context");
+---
+>             //move enemies
+>             {
+>                 std::lock_guard<std::mutex> lock(*enemyMutex);
+>                 enemies->moveEnemies(frameDelta);
+>             }
+386,387c313
+<                 lock.unlock();
+<                 //Process Events
+---
+>             //process events
+388a315
+>                 std::cout << "Waiting to process event\n";
+411a339
+>             std::cout << "events processed\n";
+413c341,346
+<                 lock.lock();
+---
+>             if(player->lives != 0){
+>                 window.draw(*player);
+>             }
+>             for(std::shared_ptr<Bullet> b : bullets){
+>                 window.draw(*b);
+>             }
+414a348,353
+>             {
+>                 std::lock_guard<std::mutex> lock(*enemyBulletMutex);
+>                 for(std::shared_ptr<EnemyBullet> b : enemyBullets){
+>                     window.draw(*b);
+>                 }
+>             }
+416,417c355,364
+<                 for(auto const& obj : gameObjects){
+<                     window.draw(*obj.second);
+---
+> 
+>             //draw enemies
+>             {
+>                 std::lock_guard<std::mutex> lock(*enemyMutex);
+>                 for(std::vector<Enemy*> row : enemies->enemyGrid){
+>                     for(Enemy* e : row){
+>                         if(!e->dead){
+>                             window.draw(*e);
+>                         }
+>                     }
+421c368,374
+<             window.display();
+---
+> 
+>             //draw lives 
+>             window.draw(livesText);
+>             lifeMarker.setPosition(sf::Vector2f(70, 570));
+>             for(int i = 0; i < player->lives; i++){
+>                 window.draw(lifeMarker);
+>                 lifeMarker.setPosition(lifeMarker.getPosition().x + 40, lifeMarker.getPosition().y);
+422a376,390
+> 
+>             scoreText.setString("Score: " + std::to_string(player->score));
+>             window.draw(scoreText);
+> 
+>             if(player->lives == 0){
+>                 gameTime.pause(lastTime);
+>                 endText.setString("Game Over");
+>                 endText.setFillColor(sf::Color(255, 0, 0));
+>                 window.draw(endText);
+>             }
+>             else if(enemies->numAlive == 0){
+>                 gameTime.pause(lastTime);
+>                 endText.setString("You Win!");
+>                 endText.setFillColor(sf::Color(0, 255, 0));
+>                 window.draw(endText);
+425,427c393,396
+<     isolate->Dispose();
+<     v8::V8::Dispose();
+<     v8::V8::ShutdownPlatform();
+---
+>             window.display();
+> 
+>         }
+>     }
+429d397
+< 	return 0;
+Binary files Platformer/Client.o and SpaceInvaders/Client.o differ
+Only in SpaceInvaders: CollidableObject.cpp
+Only in SpaceInvaders: CollidableObject.h
+Only in SpaceInvaders: CollidableObject.o
+diff -rw Platformer/Constants.cpp SpaceInvaders/Constants.cpp
+4,17c4
+< const std::string PLATFORM_ID = "PT";
+< const std::string MOVING_PLATFORM_ID = "MP";
+< const std::string SPAWN_POINT_ID = "SP";
+< const std::string DEATH_ZONE_ID = "DZ";
+< 
+< const std::string DELETE_SIGN = "D";
+< const std::string NEW_PLAYER_SIGN = "NP";
+< const std::string PAUSING_SIGN = "P";
+< const std::string TRANSFORM_LEFT = "TL";
+< const std::string TRANSFORM_RIGHT = "TR";
+< const std::string RESET_SCENE = "RS";
+< 
+< const std::string RIGHT_SIDE = "R";
+< const std::string LEFT_SIDE = "L";
+---
+> const std::string ENEMY_GRID_ID = "EG";
+diff -rw Platformer/Constants.h SpaceInvaders/Constants.h
+7,10c7
+< extern const std::string PLATFORM_ID;
+< extern const std::string MOVING_PLATFORM_ID;
+< extern const std::string SPAWN_POINT_ID;
+< extern const std::string DEATH_ZONE_ID;
+---
+> extern const std::string ENEMY_GRID_ID;
+12,20d8
+< extern const std::string DELETE_SIGN;
+< extern const std::string NEW_PLAYER_SIGN;
+< extern const std::string PAUSING_SIGN;
+< extern const std::string TRANSFORM_LEFT;
+< extern const std::string TRANSFORM_RIGHT;
+< extern const std::string RESET_SCENE;
+< 
+< extern const std::string RIGHT_SIDE;
+< extern const std::string LEFT_SIDE;
+24a13
+> 
+Binary files Platformer/Constants.o and SpaceInvaders/Constants.o differ
+Only in SpaceInvaders: EnemyBullet.cpp
+Only in SpaceInvaders: EnemyBullet.h
+Only in SpaceInvaders: EnemyBullet.o
+Only in SpaceInvaders: EnemyGrid.cpp
+Only in SpaceInvaders: EnemyGrid.h
+Only in SpaceInvaders: EnemyGrid.o
+diff -rw Platformer/Event.cpp SpaceInvaders/Event.cpp
+11,41c11
+< MovementInputEvent::MovementInputEvent(int64_t ts, Priority p, int id, char k, int64_t fd, bool sprint) : Event(ts, p), playerId{id}, key{k}, frameDelta{fd}, sprinting{sprint} {
+<     eventType = INPUT_MOVEMENT;
+< }
+< 
+< std::string MovementInputEvent::toString(){
+<     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(playerId) + " " + std::to_string(key) + " " + std::to_string(frameDelta);
+< }
+< 
+< GravityEvent::GravityEvent(int64_t ts, Priority p, int tId) : Event(ts, p), thisId{tId} {
+<     eventType = GRAVITY;
+< }
+< 
+< std::string GravityEvent::toString(){
+<     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(thisId);
+< }
+< 
+< CollisionEvent::CollisionEvent(int64_t ts, Priority p, int pId, int oId) : Event(ts, p), playerId{pId}, otherId{oId} {
+<     eventType = COLLISION_EVENT;
+< }
+< 
+< std::string CollisionEvent::toString(){
+<     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(playerId) + " " + std::to_string(otherId);
+< }
+< 
+< SpawnEvent::SpawnEvent(int64_t ts, Priority p, int tId, SpawnPoint * sp) : Event(ts, p), thisId{tId}, spawnPoint{sp} {
+<     eventType = SPAWN_EVENT;
+< }
+< 
+< std::string SpawnEvent::toString(){
+<     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(thisId);
+< }
+---
+> //---------------------------------------------MOVEMENT EVENT-------------------------------------------------
+43,44c13,14
+< AddOtherPlayerEvent::AddOtherPlayerEvent(int64_t ts, Priority p, std::string ps) : Event(ts, p), playerString{ps} {
+<     eventType = ADD_OTHER_PLAYER;
+---
+> MovementEvent::MovementEvent(int64_t ts, Priority p, char k, int64_t fd) : Event(ts, p), key{k}, frameDelta{fd}{
+>     eventType = MOVEMENT_EV;
+47,48c17,18
+< std::string AddOtherPlayerEvent::toString(){
+<     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + playerString;
+---
+> std::string MovementEvent::toString(){
+>     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(key) + " " + std::to_string(frameDelta);
+51,53c21
+< UpdatePlayerPositionEvent::UpdatePlayerPositionEvent(int64_t ts, Priority p, int id, float x, float y) : Event(ts, p), playerId{id}, xPos{x}, yPos{y} {
+<     eventType = MOVE_PLAYER_EVENT;
+< }
+---
+> //-----------------------------------------END MOVEMENT EVENT-------------------------------------------------
+55,57c23
+< std::string UpdatePlayerPositionEvent::toString(){
+<     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(playerId) + " " + std::to_string(xPos)  + " " + std::to_string(yPos);
+< }
+---
+> //---------------------------------------------ENEMY DEATH EVENT-------------------------------------------------
+59,60c25,26
+< DeathEvent::DeathEvent(int64_t ts, Priority p) : Event(ts, p){
+<     eventType = DEATH_EVENT;
+---
+> EnemyDeathEvent::EnemyDeathEvent(int64_t ts, Priority p, int r, int c) : Event(ts, p), row{r}, col{c}{
+>     eventType = ENEMY_DEATH_EV;
+63,64c29,30
+< std::string DeathEvent::toString(){
+<     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority);
+---
+> std::string EnemyDeathEvent::toString(){
+>     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(row) + " " + std::to_string(col);
+67,69c33
+< TranslationEvent::TranslationEvent(int64_t ts, Priority p, char dir, int pId, int64_t fd) : Event(ts, p), direction{dir}, playerId{pId}, frameDelta{fd} {
+<     eventType = TRANSLATE;
+< }
+---
+> //-----------------------------------------END ENEMY DEATH EVENT-------------------------------------------------
+71,73c35
+< std::string TranslationEvent::toString(){
+<     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + direction + " " + std::to_string(playerId) + " " + std::to_string(frameDelta);
+< }
+---
+> //---------------------------------------------GAIN LIFE EVENT-------------------------------------------------
+75,76c37,38
+< RemovePlayerEvent::RemovePlayerEvent(int64_t ts, Priority p, int pId) : Event(ts, p), playerId{pId} {
+<     eventType = REMOVE_PLAYER;
+---
+> GainLifeEvent::GainLifeEvent(int64_t ts, Priority p) : Event(ts, p){
+>     eventType = GAIN_LIFE_EV;
+79,81c41
+< std::string RemovePlayerEvent::toString(){
+<     return std::to_string((int)eventType) + " " + std::to_string(timeStamp) + " " + std::to_string(priority) + " " + std::to_string(playerId);
+< }
+---
+> //-----------------------------------------END GAIN LIFE EVENT-------------------------------------------------
+\ No newline at end of file
+diff -rw Platformer/Event.h SpaceInvaders/Event.h
+5,6c5,6
+< #include "GameShapes/Player.h"
+< #include "SpawnPoint.h"
+---
+> #include <string>
+> #include <iostream>
+8d7
+< //KEEP UNKNOWN AT THE BOTTOM, USED FOR ITERATION
+10,19c9,12
+<     COLLISION_EVENT,
+<     SPAWN_EVENT,
+<     DEATH_EVENT,
+<     INPUT_MOVEMENT,
+<     INPUT_OTHER,
+<     TRANSLATE,
+<     ADD_OTHER_PLAYER,
+<     MOVE_PLAYER_EVENT,
+<     REMOVE_PLAYER,
+<     GRAVITY,
+---
+>     MOVEMENT_EV,
+>     PLAYER_DEATH_EV,
+>     ENEMY_DEATH_EV,
+>     GAIN_LIFE_EV,
+38c31
+< class MovementInputEvent : public Event{
+---
+> class MovementEvent : public Event{
+40c33
+<         MovementInputEvent(int64_t ts, Priority p, int id, char k, int64_t fd, bool sprint);
+---
+>         MovementEvent(int64_t ts, Priority p, char k, int64_t fd);
+42d34
+<         int playerId;
+45d36
+<         bool sprinting;
+48c39
+< class GravityEvent : public Event{
+---
+> class GainLifeEvent : public Event{
+50,90c41
+<         GravityEvent(int64_t ts, Priority p, int tId);
+<         std::string toString() override;
+<         int thisId;
+< };
+< 
+< class CollisionEvent : public Event{
+<     public:
+<         CollisionEvent(int64_t ts, Priority p, int pId, int oId);
+<         std::string toString() override;
+<         int playerId;
+<         int otherId;
+< };
+< 
+< class SpawnEvent : public Event{
+<     public:
+<         SpawnEvent(int64_t ts, Priority p, int tId, SpawnPoint * sp);
+<         std::string toString() override;
+<         int thisId;
+<         SpawnPoint * spawnPoint;
+< };
+< 
+< class AddOtherPlayerEvent : public Event{
+<     public:
+<         AddOtherPlayerEvent(int64_t ts, Priority p, std::string ps);
+<         std::string toString() override;
+<         std::string playerString;
+< };
+< 
+< class UpdatePlayerPositionEvent : public Event{
+<     public:
+<         UpdatePlayerPositionEvent(int64_t ts, Priority p, int id, float x, float y);
+<         std::string toString() override;
+<         int playerId;
+<         float xPos;
+<         float yPos;
+< };
+< 
+< class DeathEvent : public Event{
+<     public:
+<         DeathEvent(int64_t ts, Priority p);
+<         std::string toString() override;
+---
+>         GainLifeEvent(int64_t ts, Priority p);
+93c44
+< class TranslationEvent : public Event{
+---
+> class EnemyDeathEvent : public Event{
+95c46
+<         TranslationEvent(int64_t ts, Priority p, char dir, int pId, int64_t fd);
+---
+>         EnemyDeathEvent(int64_t ts, Priority p, int r, int c);
+97,99c48,49
+<         char direction;
+<         int playerId;
+<         int64_t frameDelta;
+---
+>         int row;
+>         int col;
+102,113d51
+< class RemovePlayerEvent : public Event{
+<     public:
+<         RemovePlayerEvent(int64_t ts, Priority p, int pId);
+<         std::string toString() override;
+<         char direction;
+<         int playerId;
+<         int64_t frameDelta;
+< };
+< 
+< 
+< 
+< 
+Binary files Platformer/Event.o and SpaceInvaders/Event.o differ
+diff -rw Platformer/EventHandler.cpp SpaceInvaders/EventHandler.cpp
+3,10c3
+< std::vector<std::string> parseEventMessage(std::string strToParse){
+<     std::istringstream ss(strToParse);
+<     std::istream_iterator<std::string> begin(ss), end;
+<     std::vector<std::string> words(begin, end);
+<     return words;
+< }
+< 
+< EventHandler::EventHandler(std::mutex* m, std::map<int, CollidableObject*>* go) : objMutex{m}, gameObjects{go} {
+---
+> EventHandler::EventHandler(){
+13c6
+<     serverEventSender->connect("tcp://localhost:5560");
+---
+>     serverEventSender->connect("tcp://localhost:5558");
+20c13
+< PlayerHandler::PlayerHandler(std::mutex* m, std::map<int, CollidableObject*>* go) : EventHandler(m, go){
+---
+> PlayerHandler::PlayerHandler(Player* p) : player{p}{
+25,32c18,20
+<     if(e->eventType == INPUT_MOVEMENT){
+<         //move the player
+<         std::shared_ptr<MovementInputEvent> inputEvent = std::dynamic_pointer_cast<MovementInputEvent>(e);
+<         Player* p = (Player*)gameObjects->at(inputEvent->playerId);
+< 
+<         if(inputEvent->key == 'W'){
+<             std::lock_guard<std::mutex> lock(*objMutex);
+<             p->setJumping();
+---
+>     if(e->eventType == MOVEMENT_EV){
+>         std::shared_ptr<MovementEvent> movementEvent = std::dynamic_pointer_cast<MovementEvent>(e);
+>         player->movePlayer(movementEvent->key, movementEvent->frameDelta);
+34,44c22,23
+<         else if(inputEvent->key == 'A' || inputEvent->key == 'D'){
+<             {
+<                 std::lock_guard<std::mutex> lock(*objMutex);
+<                 p->movePlayer(inputEvent->key, inputEvent->frameDelta, inputEvent->sprinting);
+<             }
+<         }
+< 
+<         std::string playerPosEvent = std::to_string((int)MOVE_PLAYER_EVENT) + " " + std::to_string((int)MEDIUM) + " " + std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
+<         zmq::message_t posMsg(playerPosEvent.length());
+<         memcpy(posMsg.data(), playerPosEvent.c_str(), playerPosEvent.length());
+<         serverEventSender->send(posMsg, zmq::send_flags::none);
+---
+>     else if(e->eventType == ENEMY_DEATH_EV){
+>         player->score += 100;
+46,55c25,26
+<     else if(e->eventType == GRAVITY){
+<         std::shared_ptr<GravityEvent> gravityEvent = std::dynamic_pointer_cast<GravityEvent>(e);
+<         {
+<             std::lock_guard<std::mutex> lock(*objMutex);
+<             Player* p = (Player*)gameObjects->at(gravityEvent->thisId);
+<             if(p->gravity(1)){
+<                 std::string playerPosEvent = std::to_string((int)MOVE_PLAYER_EVENT) + " " + std::to_string((int)MEDIUM) + " " + std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
+<                 zmq::message_t posMsg(playerPosEvent.length());
+<                 memcpy(posMsg.data(), playerPosEvent.c_str(), playerPosEvent.length());
+<                 serverEventSender->send(posMsg, zmq::send_flags::none);
+---
+>     else if(e->eventType == GAIN_LIFE_EV){
+>         player->lives++;
+58,64d28
+<     }
+<     else if(e->eventType == COLLISION_EVENT){
+<         {
+<             std::lock_guard<std::mutex> lock(*objMutex);
+<             std::shared_ptr<CollisionEvent> collisionEvent = std::dynamic_pointer_cast<CollisionEvent>(e);
+<             Player* p = (Player*)gameObjects->at(collisionEvent->playerId);
+<             CollidableObject* co = gameObjects->at(collisionEvent->otherId);
+66,79c30
+<             if(co->objId == DEATH_ZONE_ID){
+<                 std::shared_ptr<DeathEvent> e = std::make_shared<DeathEvent>(0, LOW);
+<                 std::string deathEventString = e->toString();
+<                 zmq::message_t deathMsg(deathEventString.length());
+<                 memcpy(deathMsg.data(), deathEventString.c_str(), deathEventString.length());
+<                 serverEventSender->send(deathMsg, zmq::send_flags::none);
+<             }
+<             else{
+<                 p->setIsCollidingUnder(p->resolveColision(co));
+<                 std::string playerPosEvent = std::to_string((int)MOVE_PLAYER_EVENT) + " " + std::to_string((int)MEDIUM) + " " + std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
+<                 zmq::message_t posMsg(playerPosEvent.length());
+<                 memcpy(posMsg.data(), playerPosEvent.c_str(), playerPosEvent.length());
+<                 serverEventSender->send(posMsg, zmq::send_flags::none);
+<             }
+---
+> EnemyHandler::EnemyHandler(EnemyGrid* eg, std::mutex * gridMutex) : enemies{eg}, enemyMutex{gridMutex}{
+82a34,35
+> void EnemyHandler::onEvent(std::shared_ptr<Event> e){
+>     if(e->eventType == ENEMY_DEATH_EV){
+83a37,45
+>         std::shared_ptr<EnemyDeathEvent> enemyDeathEvent = std::dynamic_pointer_cast<EnemyDeathEvent>(e);
+>         int size = enemyDeathEvent->toString().length();
+>         zmq::message_t eventMsg(size);
+>         memcpy(eventMsg.data(), enemyDeathEvent->toString().c_str(), size);
+>         serverEventSender->send(eventMsg, zmq::send_flags::none);
+>         std::cout << "waiting on enemy mutex\n";
+>         std::lock_guard<std::mutex> lock(*enemyMutex);
+>         enemies->killEnemy(enemyDeathEvent->row, enemyDeathEvent->col);
+>         std::cout << "out of enemy mutex\n";
+85,91d46
+<     else if(e->eventType == SPAWN_EVENT){
+< 
+<         std::lock_guard<std::mutex> lock(*objMutex);
+<         std::shared_ptr<SpawnEvent> spawnEvent = std::dynamic_pointer_cast<SpawnEvent>(e);
+<         Player* p = (Player*)gameObjects->at(spawnEvent->thisId);
+<         
+<         p->setPosition(spawnEvent->spawnPoint->getSpawnPoint());
+93,94d47
+< }
+< 
+96c49
+< ServerWorldHandler::ServerWorldHandler(std::mutex* m, std::map<int, CollidableObject*>* go, Timeline * t) : EventHandler(m, go), gameTimeline{t}{
+---
+> ServerHandler::ServerHandler(EnemyGrid* eg, std::mutex * gridMutex) : enemies{eg}, enemyMutex{gridMutex}{
+100,133c53,55
+< void ServerWorldHandler::onEvent(std::shared_ptr<Event> e){
+<     if(e->eventType == ADD_OTHER_PLAYER){
+<         std::shared_ptr<AddOtherPlayerEvent> addPlayerEvent = std::dynamic_pointer_cast<AddOtherPlayerEvent>(e);
+<         std::vector<std::string> params = parseEventMessage(addPlayerEvent->playerString);
+<         Player * p = new Player(stoi(params[1]), sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
+<         {
+<             std::lock_guard<std::mutex> lock(*objMutex);
+<             if(gameObjects->count(p->id) != 1){
+<                 gameObjects->insert({p->id, p});
+<                 std::cout<< "new player added " << std::endl;
+<             }
+<         }
+<     }
+<     else if(e->eventType == MOVE_PLAYER_EVENT){
+<         std::shared_ptr<UpdatePlayerPositionEvent> moveCharEvent = std::dynamic_pointer_cast<UpdatePlayerPositionEvent>(e);
+<         {
+<             std::lock_guard<std::mutex> lock(*objMutex);
+<             gameObjects->at(moveCharEvent->playerId)->setPosition(sf::Vector2f(moveCharEvent->xPos, moveCharEvent->yPos));
+<         }
+<     }
+<     else if(e->eventType == DEATH_EVENT){
+<         {
+<             std::lock_guard<std::mutex> lock(*objMutex);
+<             for(auto const& obj : *gameObjects){
+<                 obj.second->reset();
+<             }
+<         }
+<     }
+<     else if(e->eventType == TRANSLATE){
+<         std::shared_ptr<TranslationEvent> translationEvent = std::dynamic_pointer_cast<TranslationEvent>(e);
+<         std::lock_guard<std::mutex> lock(*objMutex);
+<         for(auto const& obj : *gameObjects){
+<             if(obj.first != 1 && obj.second->objId != PLAYER_ID){
+<                 obj.second->translate(translationEvent->direction, translationEvent->frameDelta);
+---
+> void ServerHandler::onEvent(std::shared_ptr<Event> e){
+>     if(e->eventType == ENEMY_DEATH_EV){
+>         std::shared_ptr<EnemyDeathEvent> enemyDeathEvent = std::dynamic_pointer_cast<EnemyDeathEvent>(e);
+134a57,58
+>         std::lock_guard<std::mutex> lock(*enemyMutex);
+>         enemies->killEnemy(enemyDeathEvent->row, enemyDeathEvent->col);
+137,190d60
+<     }
+<     else if(e->eventType == REMOVE_PLAYER){
+<         std::shared_ptr<RemovePlayerEvent> removePlayerEvent = std::dynamic_pointer_cast<RemovePlayerEvent>(e);
+<         std::lock_guard<std::mutex> lock(*objMutex);
+<         Player * p = (Player*)gameObjects->at(removePlayerEvent->playerId);
+<         gameObjects->erase(removePlayerEvent->playerId);
+<         delete p;
+< 
+<     }
+<     else{
+<         std::cout << "ERROR: unknown event sent to world handler\n";
+<     }
+< }
+< 
+< 
+< ClientWorldHandler::ClientWorldHandler(std::mutex* m, std::map<int, CollidableObject*>* go, Timeline * t, int id) : EventHandler(m, go), gameTimeline{t}, clientId{id}{
+< 
+< }
+< 
+< void ClientWorldHandler::onEvent(std::shared_ptr<Event> e){
+<     if(e->eventType == ADD_OTHER_PLAYER){
+<         std::shared_ptr<AddOtherPlayerEvent> addPlayerEvent = std::dynamic_pointer_cast<AddOtherPlayerEvent>(e);
+<         std::vector<std::string> params = parseEventMessage(addPlayerEvent->playerString);
+<         Player * p = new Player(stoi(params[1]), sf::Vector2f(stof(params[2]), stof(params[3])), sf::Vector2f(stof(params[4]), stof(params[5])), sf::Vector2f(stof(params[6]), stof(params[7])), params[8]);
+<         {
+<             std::lock_guard<std::mutex> lock(*objMutex);
+<             if(gameObjects->count(p->id) != 1){
+<                 gameObjects->insert({p->id, p});
+<                 std::cout<< "new player added " << std::endl;
+<             }
+<         }
+<     }
+<     else if(e->eventType == DEATH_EVENT){
+<         std::lock_guard<std::mutex> lock(*objMutex);
+<         gameObjects->at(clientId)->reset();
+<     }
+<     else if(e->eventType == TRANSLATE){
+<         std::shared_ptr<TranslationEvent> translateEvent = std::dynamic_pointer_cast<TranslationEvent>(e);
+<         //if we are not the player that moved it, translate
+<         if(clientId != translateEvent->playerId){
+<             Player * p = (Player*)gameObjects->at(clientId);
+<             p->translate(translateEvent->direction, translateEvent->frameDelta);
+<             std::string playerPosEvent = std::to_string((int)MOVE_PLAYER_EVENT) + " " + std::to_string((int)MEDIUM) + " " + std::to_string(p->id) + " " + std::to_string(p->getPosition().x) + " " + std::to_string(p->getPosition().y);
+<             zmq::message_t posMsg(playerPosEvent.length());
+<             memcpy(posMsg.data(), playerPosEvent.c_str(), playerPosEvent.length());
+<             serverEventSender->send(posMsg, zmq::send_flags::none);
+<         }
+<     }
+<     else if(e->eventType == REMOVE_PLAYER){
+<         std::shared_ptr<RemovePlayerEvent> removePlayerEvent = std::dynamic_pointer_cast<RemovePlayerEvent>(e);
+<         std::lock_guard<std::mutex> lock(*objMutex);
+<         Player * p = (Player*)gameObjects->at(removePlayerEvent->playerId);
+<         gameObjects->erase(removePlayerEvent->playerId);
+<         delete p;
+192,195c62
+<     }
+< }
+< 
+< ScriptHandler::ScriptHandler(std::mutex* m, std::map<int, CollidableObject*>* go, ScriptManager * manager) : EventHandler(m, go), sm{manager}{
+---
+> ScriptHandler::ScriptHandler(ScriptManager * manager) : sm{manager}{
+200,201c67,68
+<     if(e->eventType == DEATH_EVENT){
+<         sm->runOne("death_color", false, "player_context");
+---
+>     if(e->eventType == ENEMY_DEATH_EV){
+>         sm->runOne("gain_life", false, "player_context");
+204d70
+< 
+diff -rw Platformer/EventHandler.h SpaceInvaders/EventHandler.h
+5,6d4
+< #include <mutex>
+< #include <zmq.hpp>
+8c6,10
+< #include "ScriptManager.h"
+---
+> #include <memory>
+> #include "Player.h"
+> #include "Bullet.h"
+> #include "EnemyGrid.h"
+> #include <zmq.hpp>
+12,14c14
+<         std::mutex* objMutex;
+<         std::map<int, CollidableObject*>* gameObjects;
+<         EventHandler(std::mutex* m, std::map<int, CollidableObject*>* go);
+---
+>         EventHandler();
+22c22,23
+<         PlayerHandler(std::mutex* m, std::map<int, CollidableObject*>* go);
+---
+>         PlayerHandler(Player* p);
+>         Player* player;
+26c27
+< class ServerWorldHandler : public EventHandler{
+---
+> class EnemyHandler : public EventHandler{
+28,29c29,31
+<         Timeline * gameTimeline;
+<         ServerWorldHandler(std::mutex* m, std::map<int, CollidableObject*>* go, Timeline * t);
+---
+>         EnemyHandler(EnemyGrid* eg, std::mutex * gridMutex);
+>         EnemyGrid * enemies;
+>         std::mutex * enemyMutex;
+33c35
+< class ClientWorldHandler : public EventHandler{
+---
+> class ServerHandler : public EventHandler{
+35,36c37,39
+<         Timeline * gameTimeline;
+<         ClientWorldHandler(std::mutex* m, std::map<int, CollidableObject*>* go, Timeline * t, int id);
+---
+>         ServerHandler(EnemyGrid* eg, std::mutex * gridMutex);
+>         EnemyGrid * enemies;
+>         std::mutex * enemyMutex;
+38,39d40
+<         int clientId;
+< 
+44c45
+<         ScriptHandler(std::mutex* m, std::map<int, CollidableObject*>* go, ScriptManager * manager);
+---
+>         ScriptHandler(ScriptManager * manager);
+Binary files Platformer/EventHandler.o and SpaceInvaders/EventHandler.o differ
+diff -rw Platformer/EventManager.cpp SpaceInvaders/EventManager.cpp
+9c9
+<     for(int typeInt = COLLISION_EVENT; typeInt != UNKNOWN; typeInt++){
+---
+>     for(int typeInt = MOVEMENT_EV; typeInt != UNKNOWN; typeInt++){
+21c21
+< void EventManager::addToQueue(std::shared_ptr<Event> e){
+---
+> void EventManager::addToQueue(std::shared_ptr<Event> e, bool shouldLock){
+22a23,24
+> 
+>         if(shouldLock){
+33a36,48
+>         }
+>         else{
+>             if(e->priority == HIGH){
+>                 eventQueueHigh.push(e);
+>             }
+>             else if(e->priority == MEDIUM){
+>                 eventQueueMedium.push(e);
+>             }
+>             else if(e->priority == LOW){
+>                 eventQueueLow.push(e);
+>             }
+>         }
+> 
+diff -rw Platformer/EventManager.h SpaceInvaders/EventManager.h
+22c22
+<         void addToQueue(std::shared_ptr<Event> e);
+---
+>         void addToQueue(std::shared_ptr<Event> e, bool shouldLock = true);
+Binary files Platformer/EventManager.o and SpaceInvaders/EventManager.o differ
+Only in Platformer: GameShapes
+Only in SpaceInvaders: Player.cpp
+Only in SpaceInvaders: Player.h
+Only in SpaceInvaders: Player.o
+Only in SpaceInvaders: Roboto-Black.ttf
+Only in Platformer: ScriptingWriteup.pdf
+Only in Platformer: ScriptingWriteup.pdf:Zone.Identifier
+diff -rw Platformer/Server.cpp SpaceInvaders/Server.cpp
+2,4d1
+< #include "GameShapes/Platform.h"
+< #include "GameShapes/MovingPlatform.h"
+< #include "GameShapes/Player.h"
+6,10c3,4
+< #include <iostream>
+< #include <thread>
+< #include <cmath>
+< #include "SpawnPoint.h"
+< #include "GameShapes/DeathZone.h"
+---
+> #include "CollidableObject.h"
+> #include "Player.h"
+13a8,11
+> #include "EnemyGrid.h"
+> #include <thread>
+> #include <random>
+> #include <unistd.h> 
+15c13
+< std::mutex dataMutex;
+---
+> std::mutex *enemyMutex;
+24,26c22
+< 
+< void heartbeat(){
+<     //Initalize socket
+---
+> void enemyAI(EnemyGrid *enemies){
+27a24,25
+>     zmq::socket_t enemySender (context, zmq::socket_type::push);
+>     enemySender.bind("tcp://*:5557");
+29,37c27,29
+<     zmq::socket_t heartbeatSocket(context, zmq::socket_type::pull);
+<     heartbeatSocket.bind("tcp://*:5561");
+< 
+<     zmq::socket_t eventSender (context, zmq::socket_type::push);
+<     eventSender.connect ("tcp://localhost:5560");
+< 
+<     std::map<int, int64_t> lastBeatTime;
+< 
+<     Timeline beatTimeline;
+---
+>     std::random_device rd; 
+>     std::mt19937 gen(rd());
+>     std::uniform_int_distribution<> distr(0, enemies->width - 1);
+40,64c32,33
+<         zmq::message_t beatMessage;
+<         zmq::recv_result_t r = heartbeatSocket.recv(beatMessage, zmq::recv_flags::dontwait);
+<         if(beatMessage.to_string().length() > 0){
+<             int id = stoi(beatMessage.to_string());
+<             lastBeatTime[id] = beatTimeline.getTime();
+<         }
+< 
+<         for(auto const& obj : lastBeatTime){
+<             int64_t currentTime = beatTimeline.getTime();
+<             if(currentTime - obj.second > 2500){
+<                 //send message to delete player on all clients
+<                 std::string deleteStr = std::to_string(REMOVE_PLAYER) + " 0 " + std::to_string(LOW) + " " + std::to_string(obj.first);
+<                 zmq::message_t deletePlayerMessage(deleteStr.length());
+<                 memcpy(deletePlayerMessage.data(), deleteStr.c_str(), deleteStr.length());
+<                 eventSender.send(deletePlayerMessage, zmq::send_flags::none);
+< 
+<                 //erase from this map
+<                 lastBeatTime.erase(obj.first);
+< 
+<                 break;
+<             }
+<         }
+<     }
+<     
+< 
+---
+>         int colToShoot = distr(gen);
+>         int rowToShoot = enemies->height-1;
+65a35,37
+>         //find the lowest enemy in the row
+>         while(rowToShoot != -1 && enemies->enemyGrid[rowToShoot][colToShoot]->dead){
+>             rowToShoot--;
+68,81c40,42
+< 
+< void movePlatforms(Timeline* platformTime, std::map<int, CollidableObject*>* gameObjects, SpawnPoint * sp){
+<         //Initalize socket
+<     zmq::context_t context (1);
+< 
+<     zmq::socket_t platformMovementSocket (context, zmq::socket_type::pub);
+< 
+<     platformMovementSocket.bind ("tcp://*:5555");
+<     int64_t lastTime = platformTime->getTime();
+< 
+<     std::vector<MovingPlatform*> movingPlatforms;
+<     for(auto const& obj : *gameObjects){
+<         if(obj.second->objId == MOVING_PLATFORM_ID){
+<             movingPlatforms.push_back((MovingPlatform*)obj.second);
+---
+>         //try again with a different column
+>         if(rowToShoot == -1){
+>             continue;
+83,90d43
+<     }
+< 
+<     while(true){
+<         int64_t currentTime = platformTime->getTime();
+<         int64_t frameDelta = currentTime - lastTime;
+<         lastTime = currentTime;
+<         if(frameDelta != 0){
+<             std::lock_guard<std::mutex> lock(dataMutex);
+92c45,48
+<             for(auto const& obj : *gameObjects){
+---
+>         std::string shootString = "S " + std::to_string(rowToShoot) + " " + std::to_string(colToShoot);
+>         zmq::message_t shootMessage(shootString.length());
+>         memcpy(shootMessage.data(), shootString.c_str(), shootString.length());
+>         enemySender.send(shootMessage, zmq::send_flags::none);
+94,96c50
+<                 if(obj.second->objId == MOVING_PLATFORM_ID){
+<                     MovingPlatform* mp = (MovingPlatform*)obj.second;
+<                     mp->movePosition(frameDelta);
+---
+>         sleep(1);
+98,101d51
+<                 std::string platformPositionStr = std::to_string(obj.second->id) + " " + std::to_string(obj.second->getPosition().x) + " " + std::to_string(obj.second->getPosition().y) + "\0";
+<                 zmq::message_t posMessage(platformPositionStr.length());
+<                 memcpy(posMessage.data(), platformPositionStr.c_str(), platformPositionStr.length());
+<                 platformMovementSocket.send(posMessage, zmq::send_flags::none);
+104,106d53
+<         }
+<     }
+< }
+109c56
+< void EventPublisher(EventManager *em, Timeline* timeline){
+---
+> void eventListner(EventManager *em, Timeline* timeline){
+112,115c59
+<     serverEventListner.bind("tcp://*:5560");
+< 
+<     zmq::socket_t eventPublisher(context, zmq::socket_type::pub);
+<     eventPublisher.bind("tcp://*:5559");
+---
+>     serverEventListner.bind("tcp://*:5558");
+120d63
+<         //std::cout << "Event: " << eventMessage.to_string() << std::endl;
+125,131c68,69
+<         if(t == ADD_OTHER_PLAYER){
+<             std::string playerString = "";
+<             for(int i = 3; i <= 11; i++ ){
+<                 playerString += params[i] + " ";
+<             }
+<             //std::cout << "PLAYER STRING: " << playerString << std::flush;
+<             std::shared_ptr<AddOtherPlayerEvent> e = std::make_shared<AddOtherPlayerEvent>(timeline->getTime(), (Priority)stoi(params[2]), playerString);
+---
+>         if(t == ENEMY_DEATH_EV){
+>             std::shared_ptr<EnemyDeathEvent> e = std::make_shared<EnemyDeathEvent>(timeline->getTime(), (Priority)stoi(params[2]), stoi(params[3]), stoi(params[4]));
+133d70
+<             eventPublisher.send(eventMessage, zmq::send_flags::none);
+135,139d71
+<         else if(t == MOVE_PLAYER_EVENT){
+<             std::shared_ptr<UpdatePlayerPositionEvent> e = std::make_shared<UpdatePlayerPositionEvent>(timeline->getTime(), (Priority)stoi(params[1]), stoi(params[2]), stof(params[3]), stof(params[4]));
+<             em->addToQueue(e);
+<             //eventPublisher.send(eventMessage, zmq::send_flags::none);
+< 
+141,144c73
+<         else if(t == DEATH_EVENT){
+<             std::shared_ptr<DeathEvent> e = std::make_shared<DeathEvent>(timeline->getTime(), (Priority)stoi(params[2]));
+<             em->addToQueue(e);
+<             eventPublisher.send(eventMessage, zmq::send_flags::none);
+---
+> }
+145a75,82
+> void eventProcessor(EventManager *eventManager, Timeline* gameTime){
+>     while(true){
+>         {
+>             std::lock_guard<std::mutex> lock(eventManager->mutex);
+>             while(!eventManager->eventQueueHigh.empty() && eventManager->eventQueueHigh.top()->timeStamp <= gameTime->getTime()){
+>                 std::shared_ptr<Event> ev = eventManager->eventQueueHigh.top();
+>                 for(EventHandler* h : eventManager->handlers[ev->eventType]){
+>                     h->onEvent(ev);
+147,151c84
+<         else if(t == TRANSLATE){
+<             //std::cout << "ADDING TRANSLATE TO QUEUE\n";
+<             std::shared_ptr<TranslationEvent> e = std::make_shared<TranslationEvent>(timeline->getTime(), (Priority)stoi(params[2]), params[3][0], stoi(params[4]), stoi(params[5]));
+<             em->addToQueue(e);
+<             eventPublisher.send(eventMessage, zmq::send_flags::none);
+---
+>                 eventManager->eventQueueHigh.pop();
+153,156c86,89
+<         else if(t == REMOVE_PLAYER){
+<             std::shared_ptr<RemovePlayerEvent> e = std::make_shared<RemovePlayerEvent>(timeline->getTime(), (Priority)stoi(params[2]),stoi(params[3]));
+<             em->addToQueue(e);
+<             eventPublisher.send(eventMessage, zmq::send_flags::none);
+---
+>             while(!eventManager->eventQueueMedium.empty() && eventManager->eventQueueMedium.top()->timeStamp <= gameTime->getTime()){
+>                 std::shared_ptr<Event> ev = eventManager->eventQueueMedium.top();
+>                 for(EventHandler* h : eventManager->handlers[ev->eventType]){
+>                     h->onEvent(ev);
+157a91,98
+>                 eventManager->eventQueueMedium.pop();
+>             }
+>             while(!eventManager->eventQueueLow.empty() && eventManager->eventQueueLow.top()->timeStamp <= gameTime->getTime()){
+>                 std::shared_ptr<Event> ev = eventManager->eventQueueLow.top();
+>                 for(EventHandler* h : eventManager->handlers[ev->eventType]){
+>                     h->onEvent(ev);
+>                 }
+>                 eventManager->eventQueueLow.pop();
+160,211d100
+< 
+< 
+< void newPlayerFunction(int id, std::map<int, CollidableObject*>* gameObjects, SpawnPoint* sp){
+<     int currentId = id;
+<     zmq::context_t context (1);
+<     zmq::socket_t playerConnectionSocket (context, zmq::socket_type::rep);
+<     playerConnectionSocket.bind ("tcp://*:5556");
+< 
+<     zmq::socket_t serverEventSender (context, zmq::socket_type::push);
+<     serverEventSender.connect("tcp://localhost:5560");
+< 
+<     while(true){
+<         zmq::message_t pm;
+<         zmq::recv_result_t r = playerConnectionSocket.recv(pm, zmq::recv_flags::none);
+< 
+<         //Send the client their player's id
+<         zmq::message_t newResponse(std::to_string(currentId).length());
+<         memcpy(newResponse.data(), std::to_string(currentId).c_str(), std::to_string(currentId).length());
+<         playerConnectionSocket.send(newResponse, zmq::send_flags::sndmore);
+< 
+<         std::lock_guard<std::mutex> lock(dataMutex);
+< 
+<         //create new player
+<         Player p(currentId, sf::Vector2f(50, 50), sp->getSpawnPoint(), sp->getSpawnPoint(), "");
+< 
+<         //send platform and other collidable objects
+<         for(auto const& obj : *gameObjects){
+<             zmq::message_t platformMessage(obj.second->toString().length());
+<             memcpy(platformMessage.data(), obj.second->toString().c_str(), obj.second->toString().length());
+<             playerConnectionSocket.send(platformMessage, zmq::send_flags::sndmore);
+<         }
+< 
+<         //send player
+<         std::string playerString = p.toString();
+<         zmq::message_t playerMessage(playerString.length());
+<         memcpy(playerMessage.data(), playerString.c_str(), playerString.length());
+<         playerConnectionSocket.send(playerMessage, zmq::send_flags::sndmore);
+< 
+<         //send spawn point
+<         std::string spString = sp->toString();
+<         zmq::message_t spawnPointMessage(spString.length());
+<         memcpy(spawnPointMessage.data(), spString.c_str(), spString.length());
+<         playerConnectionSocket.send(spawnPointMessage, zmq::send_flags::none);
+< 
+<         currentId++; 
+< 
+<         //send new player event out to existing clients
+<         std::string newPlayerEventString = std::to_string((int)ADD_OTHER_PLAYER) + " 0 " + std::to_string((int)LOW) + " " + p.toString();
+<         zmq::message_t newPlayerMessage(newPlayerEventString.length());
+<         memcpy(newPlayerMessage.data(), newPlayerEventString.c_str(), newPlayerEventString.length());
+<         serverEventSender.send(newPlayerMessage, zmq::send_flags::none);
+< 
+214d102
+< 
+217a106,110
+>     enemyMutex = new std::mutex();
+>     //set up server connection
+>     zmq::context_t context (1);
+>     zmq::socket_t playerConnectionSocket (context, zmq::socket_type::rep);
+>     playerConnectionSocket.bind ("tcp://*:5556");
+218a112
+>     int id = 1;
+219a114,115
+>     Player player(id, sf::Vector2f(20, 40), sf::Vector2f(390, 500), "");
+>     EnemyGrid *enemies = new EnemyGrid(4, 2, 50);
+221c117
+<     int id = 1;
+---
+>     int highScore = 0;
+223c119,120
+<     std::map<int, CollidableObject*> gameObjects;
+---
+>     //create event manager and handlers
+>     EventManager *eventManager = new EventManager();
+225,256c122,123
+<     int groundHeight = 15;
+<     Platform platform(id, sf::Vector2f(SCENE_WIDTH, groundHeight), sf::Vector2f(0,SCENE_HEIGHT - groundHeight), sf::Vector2f(0,SCENE_HEIGHT - groundHeight), "");
+<     gameObjects[platform.id] = &platform;
+<     id++;
+< 
+<     Platform platform1(id, sf::Vector2f(200, groundHeight), sf::Vector2f(-100, 400), sf::Vector2f(-100, 400), "");
+<     gameObjects[platform1.id] = &platform1;
+<     id++;
+< 
+<     Platform platform2(id, sf::Vector2f(200, groundHeight), sf::Vector2f(750, 550), sf::Vector2f(750, 550), "");
+<     gameObjects[platform2.id] = &platform2;
+<     id++;
+< 
+<     Platform platform3(id, sf::Vector2f(700, groundHeight), sf::Vector2f(350, 200), sf::Vector2f(350, 200), "");
+<     gameObjects[platform3.id] = &platform3;
+<     id++;
+< 
+<     //Set Spawn Point
+<     SpawnPoint sp(sf::Vector2f(375, 0), sf::Vector2f(375, 0));
+< 
+<     MovingPlatform horzPlatform(id, sf::Vector2f(60.f, 15.f), sf::Vector2f(400, 500), sf::Vector2f(400, 500), "", Direction::horizontal, 0.5, 200);
+<     horzPlatform.setFillColor(sf::Color(150, 50, 250));
+<     gameObjects[horzPlatform.id] = &horzPlatform;
+<     id++;
+< 
+<     MovingPlatform vertPlatform(id, sf::Vector2f(100.f, 15.f), sf::Vector2f(200, 100), sf::Vector2f(200, 100), "", Direction::vertical, 0.5, 400);
+<     gameObjects[vertPlatform.id] = &vertPlatform;
+<     id++;
+< 
+<     DeathZone spike(id, sf::Vector2f(50,20), sf::Vector2f(600, SCENE_HEIGHT - groundHeight - 20), sf::Vector2f(600, SCENE_HEIGHT - groundHeight - 20), "");
+<     gameObjects[spike.id] = &spike;
+<     id++;
+---
+>     ServerHandler * serverHandler = new ServerHandler(enemies, enemyMutex);
+>     eventManager->addHandler(std::vector<EventType>{ENEMY_DEATH_EV}, serverHandler);
+258d124
+<     //Create Timelines
+260c126
+<     Timeline gameTimeline(&anchorTimeline);
+---
+>     Timeline gameTime(&anchorTimeline);
+261a128,130
+>     std::thread eventProcessorThread(eventProcessor, eventManager, &gameTime);
+>     std::thread eventListnerThread(eventListner, eventManager, &gameTime);
+>     std::thread enemyAIThread(enemyAI, enemies);
+263,266d131
+<     //create event Handlers
+<     EventManager *eventManager = new EventManager();
+<     ServerWorldHandler * worldHandler = new ServerWorldHandler(&dataMutex, &gameObjects, &gameTimeline);
+<     eventManager->addHandler(std::vector<EventType>{MOVE_PLAYER_EVENT, ADD_OTHER_PLAYER, DEATH_EVENT, TRANSLATE, REMOVE_PLAYER}, worldHandler);
+268,272c133,136
+<     //start threads
+<     std::thread platformThread(movePlatforms, &gameTimeline, &gameObjects, &sp);
+<     std::thread heartbeatThread(heartbeat);
+<     std::thread newPlayerThread(newPlayerFunction, id, &gameObjects, &sp);
+<     std::thread eventPublisherThread(EventPublisher, eventManager, &gameTimeline);
+---
+>     while(true){
+>         //wait for client request
+>         zmq::message_t pm;
+>         zmq::recv_result_t r = playerConnectionSocket.recv(pm, zmq::recv_flags::none);
+274,277c138
+<     //sockets
+<     zmq::context_t context(1);
+<     zmq::socket_t pullEvents(context, zmq::socket_type::pull);
+<     pullEvents.bind("tcp://*:5557");
+---
+>         enemies->createEnemies();
+279,280c140,143
+<     zmq::socket_t publishPlayerPos(context, zmq::socket_type::pub);
+<     publishPlayerPos.bind("tcp://*:5558");
+---
+>         //send world to player
+>         zmq::message_t newResponse(std::to_string(player.id).length());
+>         memcpy(newResponse.data(), std::to_string(player.id).c_str(), std::to_string(player.id).length());
+>         playerConnectionSocket.send(newResponse, zmq::send_flags::sndmore);
+281a145,152
+>         zmq::message_t enemiesMsg(enemies->toString().length());
+>         memcpy(enemiesMsg.data(), enemies->toString().c_str(), enemies->toString().length());
+>         playerConnectionSocket.send(enemiesMsg, zmq::send_flags::sndmore);
+> 
+>         zmq::message_t playerMsg(player.toString().length());
+>         memcpy(playerMsg.data(), player.toString().c_str(), player.toString().length());
+>         playerConnectionSocket.send(playerMsg, zmq::send_flags::none);
+>     }
+283d153
+<     while(true){
+285,308d154
+<         {
+<             std::lock_guard<std::mutex> lock(eventManager->mutex);
+<             while(!eventManager->eventQueueHigh.empty() && eventManager->eventQueueHigh.top()->timeStamp <= gameTimeline.getTime()){
+<                 std::shared_ptr<Event> ev = eventManager->eventQueueHigh.top();
+<                 for(EventHandler* h : eventManager->handlers[ev->eventType]){
+<                     h->onEvent(ev);
+<                 }
+<                 eventManager->eventQueueHigh.pop();
+<             }
+<             while(!eventManager->eventQueueMedium.empty() && eventManager->eventQueueMedium.top()->timeStamp <= gameTimeline.getTime()){
+<                 std::shared_ptr<Event> ev = eventManager->eventQueueMedium.top();
+<                 for(EventHandler* h : eventManager->handlers[ev->eventType]){
+<                     h->onEvent(ev);
+<                 }
+<                 eventManager->eventQueueMedium.pop();
+<             }
+<             while(!eventManager->eventQueueLow.empty() && eventManager->eventQueueLow.top()->timeStamp <= gameTimeline.getTime()){
+<                 std::shared_ptr<Event> ev = eventManager->eventQueueLow.top();
+<                 for(EventHandler* h : eventManager->handlers[ev->eventType]){
+<                     h->onEvent(ev);
+<                 }
+<                 eventManager->eventQueueLow.pop();
+<             }
+<         }
+310d155
+<     }
+Binary files Platformer/Server.o and SpaceInvaders/Server.o differ
+Only in Platformer: SpawnPoint.cpp
+Only in Platformer: SpawnPoint.h
+Only in Platformer: SpawnPoint.o
+Binary files Platformer/client and SpaceInvaders/client differ
+diff -rw Platformer/scripts/change_color.js SpaceInvaders/scripts/change_color.js
+1,3c1,10
+< color = thisPlayer.outlineColorR
+< if(color == 255){
+<     thisPlayer.outlineColorR = 0
+---
+> // color = thisPlayer.outlineColorR
+> // if(color == 255){
+> //     thisPlayer.outlineColorR = 0
+> // }
+> // else{
+> //     thisPlayer.outlineColorR = thisPlayer.outlineColorR + 1
+> // }
+> 
+> if(thisPlayer.lives == 2){
+>     thisPlayer.colorR = 255;
+5,6c12,13
+< else{
+<     thisPlayer.outlineColorR = thisPlayer.outlineColorR + 1
+---
+> else if(thisPlayer.lives == 1){
+>     thisPlayer.colorR = 125;
+Only in Platformer/scripts: death_color.js
+Only in SpaceInvaders/scripts: gain_life.js
+Only in Platformer/scripts: raise_death_event.js
+Binary files Platformer/server and SpaceInvaders/server differ

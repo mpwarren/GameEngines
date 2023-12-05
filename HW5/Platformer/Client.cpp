@@ -280,6 +280,11 @@ int main(){
         //ADD SCRIPTS
         sm->addScript("change_color", "scripts/change_color.js", "player_context");
         sm->addScript("check_death_event", "scripts/raise_death_event.js", "player_context");
+        sm->addScript("death_color", "scripts/death_color.js", "player_context");
+
+        ScriptHandler * scriptHandler = new ScriptHandler(&dataMutex, &gameObjects, sm);
+        eventManager->addHandler(std::vector<EventType>{DEATH_EVENT}, scriptHandler);
+
 
         while(window.isOpen()){
             
@@ -289,6 +294,30 @@ int main(){
             {
                 if (event.type == sf::Event::Closed)
                     window.close();
+
+                if (event.type == sf::Event::KeyPressed){
+                    if(event.key.code == sf::Keyboard::P){
+                        if(gameTime.isPaused()){
+                            int64_t elapsedTime = gameTime.unpause();
+                            lastTime = gameTime.getTime();
+                        }
+                        else{
+                            gameTime.pause(lastTime);
+                        }  
+                    }
+                    else if(event.key.code == sf::Keyboard::Z){
+                        gameTime.changeTic(TIC_HALF);
+                        lastTime = gameTime.getTime();
+                    }
+                    else if(event.key.code == sf::Keyboard::X){
+                        gameTime.changeTic(TIC_NORMAL);
+                        lastTime = gameTime.getTime();
+                    }
+                    else if(event.key.code == sf::Keyboard::C){
+                        gameTime.changeTic(TIC_TWO_TIMES);
+                        lastTime = gameTime.getTime();
+                    }
+                }
             }
             window.clear();
 

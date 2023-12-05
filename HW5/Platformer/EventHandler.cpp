@@ -192,3 +192,13 @@ void ClientWorldHandler::onEvent(std::shared_ptr<Event> e){
     }
 }
 
+ScriptHandler::ScriptHandler(std::mutex* m, std::map<int, CollidableObject*>* go, ScriptManager * manager) : EventHandler(m, go), sm{manager}{
+
+}
+
+void ScriptHandler::onEvent(std::shared_ptr<Event> e){
+    if(e->eventType == DEATH_EVENT){
+        sm->runOne("death_color", false, "player_context");
+    }
+}
+
